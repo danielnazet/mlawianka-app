@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { View, StyleSheet, ImageBackground, Image } from "react-native";
+import { View, StyleSheet, Image, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import { TextInput, Button, Title, Text } from "react-native-paper";
 import { router } from "expo-router";
 import { supabase } from "../../lib/supabase";
+import { COLORS } from "../../css/colors";
 
 export default function LoginScreen() {
 	const [email, setEmail] = useState("");
@@ -38,43 +39,50 @@ export default function LoginScreen() {
 	};
 
 	return (
-		<ImageBackground
-			source={require("../assets/logo.png")}
-			style={styles.backgroundImage}
-			resizeMode="contain"
+		<KeyboardAvoidingView
+			behavior={Platform.OS === "ios" ? "padding" : "height"}
+			style={styles.keyboardView}
 		>
-			<View style={styles.overlay}>
+			<ScrollView contentContainerStyle={styles.scrollContainer}>
 				<View style={styles.container}>
-					<View style={styles.logoContainer}>
+					{/* Górna część - logo klubowe */}
+					<View style={styles.header}>
 						<Image
 							source={require("../assets/logo.png")}
 							style={styles.logo}
 							resizeMode="contain"
 						/>
+						<Title style={styles.appTitle}>Mławianka Mława</Title>
+						<Text style={styles.appSubtitle}>Panel Zawodnika & Kibica</Text>
 					</View>
 
-					<Title style={styles.title}>Mlawianka Mlawa</Title>
+					{/* Karta formularza logowania */}
+					<View style={styles.card}>
+						<Title style={styles.cardTitle}>Zaloguj się</Title>
 
-					<View style={styles.form}>
 						<TextInput
-							label="Email"
+							label="Adres E-mail"
 							value={email}
 							onChangeText={setEmail}
 							mode="outlined"
 							style={styles.input}
 							keyboardType="email-address"
 							autoCapitalize="none"
-							theme={{ colors: { primary: "#1e3a8a" } }}
+							outlineColor={styles.inputOutline.color}
+							activeOutlineColor={COLORS.primary}
+							textColor={COLORS.textDark}
 						/>
 
 						<TextInput
-							label="Password"
+							label="Hasło"
 							value={password}
 							onChangeText={setPassword}
 							secureTextEntry
 							mode="outlined"
 							style={styles.input}
-							theme={{ colors: { primary: "#1e3a8a" } }}
+							outlineColor={styles.inputOutline.color}
+							activeOutlineColor={COLORS.primary}
+							textColor={COLORS.textDark}
 						/>
 
 						{error ? (
@@ -85,73 +93,105 @@ export default function LoginScreen() {
 							mode="contained"
 							onPress={handleLogin}
 							style={styles.button}
+							labelStyle={styles.buttonLabel}
 							loading={loading}
 							disabled={loading}
 						>
-							Login
+							Zaloguj się
 						</Button>
 
 						<Button
 							mode="text"
 							onPress={() => router.push("/auth/register")}
-							style={styles.button}
+							style={styles.textButton}
+							textColor={COLORS.primary}
 							disabled={loading}
 						>
-							Don't have an account? Register
+							Nie masz konta? Zarejestruj się
 						</Button>
 					</View>
 				</View>
-			</View>
-		</ImageBackground>
+			</ScrollView>
+		</KeyboardAvoidingView>
 	);
 }
 
 const styles = StyleSheet.create({
-	backgroundImage: {
+	keyboardView: {
 		flex: 1,
-		width: "100%",
+		backgroundColor: COLORS.background,
 	},
-	overlay: {
-		flex: 1,
-		backgroundColor: "rgba(255, 255, 255, 0.95)", // Biały z przezroczystością
+	scrollContainer: {
+		flexGrow: 1,
+		justifyContent: "center",
 	},
 	container: {
 		flex: 1,
-		padding: 20,
+		padding: 24,
 		justifyContent: "center",
 	},
-	logoContainer: {
+	header: {
 		alignItems: "center",
-		marginBottom: 20,
+		marginBottom: 32,
 	},
 	logo: {
-		width: 150,
-		height: 150,
-		opacity: 0.9,
+		width: 120,
+		height: 120,
 	},
-	title: {
-		fontSize: 24,
-		marginBottom: 20,
+	appTitle: {
+		fontSize: 26,
+		fontWeight: "bold",
+		color: COLORS.primary,
+		marginTop: 12,
 		textAlign: "center",
-		color: "#1e3a8a",
 	},
-	form: {
-		width: "100%",
-		backgroundColor: "rgba(255, 255, 255, 0.8)",
-		padding: 20,
-		borderRadius: 10,
+	appSubtitle: {
+		fontSize: 14,
+		color: COLORS.textLight,
+		marginTop: 4,
+		textAlign: "center",
+	},
+	card: {
+		backgroundColor: COLORS.white,
+		borderRadius: 16,
+		padding: 24,
+		shadowColor: "#000",
+		shadowOffset: { width: 0, height: 4 },
+		shadowOpacity: 0.1,
+		shadowRadius: 12,
+		elevation: 4,
+	},
+	cardTitle: {
+		fontSize: 20,
+		fontWeight: "bold",
+		color: COLORS.textDark,
+		marginBottom: 16,
 	},
 	input: {
-		marginBottom: 10,
-		backgroundColor: "white",
+		marginBottom: 16,
+		backgroundColor: COLORS.white,
+	},
+	inputOutline: {
+		color: COLORS.border,
 	},
 	button: {
-		marginTop: 10,
-		backgroundColor: "#1e3a8a",
+		marginTop: 8,
+		backgroundColor: COLORS.primary,
+		paddingVertical: 4,
+		borderRadius: 8,
+	},
+	buttonLabel: {
+		fontSize: 16,
+		fontWeight: "bold",
+		color: COLORS.white,
+	},
+	textButton: {
+		marginTop: 12,
 	},
 	error: {
-		color: "red",
-		marginBottom: 10,
+		color: COLORS.error,
+		marginBottom: 12,
 		textAlign: "center",
+		fontSize: 14,
 	},
 });

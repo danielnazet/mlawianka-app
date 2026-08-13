@@ -1,102 +1,229 @@
-import React, { useState } from "react";
-import { View, StyleSheet, ScrollView, ImageBackground } from "react-native";
-import { Card, Title, Paragraph, Text } from "react-native-paper";
-
-// Przykładowe dane treningów
-const SAMPLE_TRAININGS = [
-	{
-		id: "1",
-		title: "Trening Grupa A (U-8)",
-		description: "Trening techniki i koordynacji",
-		coach: "Adam Kowalski",
-		time: "Poniedziałek 16:00-17:30",
-		location: "Boisko główne",
-	},
-	{
-		id: "2",
-		title: "Trening Grupa B (U-10)",
-		description: "Trening taktyczny",
-		coach: "Marek Nowak",
-		time: "Wtorek 16:00-17:30",
-		location: "Boisko treningowe",
-	},
-	// Możesz dodać więcej przykładowych treningów
-];
+import React, { useState, useEffect } from "react";
+import { View, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from "react-native";
+import { Card, Title, Paragraph, Text, Button } from "react-native-paper";
+import { router } from "expo-router";
+import { supabase } from "../../lib/supabase";
+import { useAuth } from "../../contexts/AuthContext";
+import { COLORS } from "../../css/colors";
 
 export default function TrainingScreen() {
-	const [trainings] = useState(SAMPLE_TRAININGS);
+	const { user } = useAuth();
+	const [trainings, setTrainings] = useState([]);
+	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
+
+	const fetchTrainings = async () => {
+		if (!user) {
+			setLoading(false);
+			return;
+		}
+		try {
+			const { data, error } = await supabase
+				.from("trainings")
+				.select("*")
+				.order("id", { ascending: true });
+
+			if (error) throw error;
+			setTrainings(data || []);
+		} catch (error) {
+			console.error("Error fetching trainings:", error);
+		} finally {
+			setLoading(false);
+			setRefreshing(false);
+		}
+	};
+
+	useEffect(() => {
+		fetchTrainings();
+	}, [user]);
+
+	const onRefresh = () => {
+		setRefreshing(true);
+		fetchTrainings();
+	};
+
+	if (loading) {
+		return (
+			<View style={styles.loadingContainer}>
+				<ActivityIndicator size="large" color={COLORS.primary} />
+			</View>
+		);
+	}
+
+	if (!user) {
+		return (
+			<View style={styles.guestContainer}>
+				<Card style={styles.guestCard}>
+					<Card.Content style={styles.guestContent}>
+						<Title style={styles.guestTitle}>Strefa Zawodnika</Title>
+						<Paragraph style={styles.guestDescription}>
+							Harmonogram treningów jest dostępny wyłącznie dla zalogowanych zawodników klubu Mławianka Mława.
+						</Paragraph>
+						<Button
+							mode="contained"
+							onPress={() => router.push("/auth/login")}
+							style={styles.guestButton}
+							labelStyle={styles.guestButtonLabel}
+						>
+							Zaloguj się lub zarejestruj
+						</Button>
+					</Card.Content>
+				</Card>
+			</View>
+		);
+	}
 
 	return (
-		<ImageBackground
-			source={require("../assets/logo.png")}
-			style={styles.backgroundImage}
-			resizeMode="contain"
-		>
-			<View style={styles.overlay}>
-				<ScrollView style={styles.container}>
-					<Title style={styles.mainTitle}>
-						Harmonogram treningów
-					</Title>
-					{trainings.map((training) => (
+		<View style={styles.container}>
+			<ScrollView
+				contentContainerStyle={styles.scrollContainer}
+				refreshControl={
+					<RefreshControl
+						refreshing={refreshing}
+						onRefresh={onRefresh}
+						colors={[COLORS.primary]}
+					/>
+				}
+			>
+				<Title style={styles.mainTitle}>Harmonogram treningów</Title>
+				
+				{trainings.length === 0 ? (
+					<View style={styles.emptyContainer}>
+						<Text style={styles.emptyText}>Brak zaplanowanych treningów.</Text>
+					</View>
+				) : (
+					trainings.map((training) => (
 						<Card key={training.id} style={styles.card}>
 							<Card.Content>
-								<Title style={styles.title}>
-									{training.title}
-								</Title>
+								<Title style={styles.title}>{training.title}</Title>
 								<Paragraph style={styles.description}>
 									{training.description}
 								</Paragraph>
-								<Text style={styles.info}>
-									Trener: {training.coach}
-								</Text>
-								<Text style={styles.info}>
-									Termin: {training.time}
-								</Text>
-								<Text style={styles.info}>
-									Miejsce: {training.location}
-								</Text>
+								<View style={styles.infoRow}>
+									<Text style={styles.infoLabel}>Trener:</Text>
+									<Text style={styles.infoValue}>{training.coach}</Text>
+								</View>
+								<View style={styles.infoRow}>
+									<Text style={styles.infoLabel}>Termin:</Text>
+									<Text style={styles.infoValue}>{training.time}</Text>
+								</View>
+								<View style={styles.infoRow}>
+									<Text style={styles.infoLabel}>Miejsce:</Text>
+									<Text style={styles.infoValue}>{training.location}</Text>
+								</View>
 							</Card.Content>
 						</Card>
-					))}
-				</ScrollView>
-			</View>
-		</ImageBackground>
+					))
+				)}
+			</ScrollView>
+		</View>
 	);
 }
 
 const styles = StyleSheet.create({
-	backgroundImage: {
-		flex: 1,
-		width: "100%",
-	},
-	overlay: {
-		flex: 1,
-		backgroundColor: "rgba(255, 255, 255, 0.95)",
-	},
 	container: {
 		flex: 1,
+		backgroundColor: COLORS.background,
+	},
+	loadingContainer: {
+		flex: 1,
+		justifyContent: "center",
+		alignItems: "center",
+		backgroundColor: COLORS.background,
+	},
+	scrollContainer: {
 		padding: 16,
 	},
 	mainTitle: {
 		textAlign: "center",
 		marginBottom: 20,
-		color: "#1e3a8a",
-		fontSize: 24,
+		color: COLORS.primary,
+		fontSize: 22,
+		fontWeight: "bold",
 	},
 	card: {
 		marginBottom: 16,
-		backgroundColor: "rgba(255, 255, 255, 0.9)",
+		backgroundColor: COLORS.white,
+		borderRadius: 12,
+		shadowColor: "#000",
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.05,
+		shadowRadius: 8,
+		elevation: 2,
 	},
 	title: {
-		color: "#1e3a8a",
+		color: COLORS.primary,
 		fontSize: 18,
+		fontWeight: "bold",
+		marginBottom: 6,
 	},
 	description: {
-		marginVertical: 8,
-		color: "#4b5563",
+		marginBottom: 12,
+		color: COLORS.textDark,
+		fontSize: 14,
+		lineHeight: 18,
 	},
-	info: {
+	infoRow: {
+		flexDirection: "row",
+		justifyContent: "space-between",
 		marginVertical: 4,
-		color: "#374151",
+		borderBottomWidth: 1,
+		borderBottomColor: "#f3f4f6",
+		paddingBottom: 4,
+	},
+	infoLabel: {
+		fontWeight: "bold",
+		color: COLORS.textLight,
+		fontSize: 13,
+	},
+	infoValue: {
+		color: COLORS.textDark,
+		fontSize: 13,
+		fontWeight: "500",
+	},
+	emptyContainer: {
+		padding: 32,
+		alignItems: "center",
+	},
+	emptyText: {
+		color: COLORS.textLight,
+		fontSize: 15,
+	},
+	guestContainer: {
+		flex: 1,
+		justifyContent: "center",
+		padding: 24,
+		backgroundColor: COLORS.background,
+	},
+	guestCard: {
+		backgroundColor: COLORS.white,
+		borderRadius: 16,
+		padding: 16,
+		elevation: 4,
+	},
+	guestContent: {
+		alignItems: "center",
+	},
+	guestTitle: {
+		color: COLORS.primary,
+		fontWeight: "bold",
+		fontSize: 20,
+		marginBottom: 8,
+	},
+	guestDescription: {
+		textAlign: "center",
+		color: COLORS.textLight,
+		marginBottom: 20,
+		fontSize: 14,
+		lineHeight: 20,
+	},
+	guestButton: {
+		backgroundColor: COLORS.primary,
+		width: "100%",
+		borderRadius: 8,
+	},
+	guestButtonLabel: {
+		fontWeight: "bold",
+		color: COLORS.white,
 	},
 });

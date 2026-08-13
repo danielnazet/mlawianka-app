@@ -1,15 +1,16 @@
 import React, { useState } from "react";
-import { View, StyleSheet, ScrollView } from "react-native";
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
 import { TextInput, Button, Title, Text, RadioButton } from "react-native-paper";
 import { router } from "expo-router";
 import { supabase } from "../../lib/supabase";
+import { COLORS } from "../../css/colors";
 
 // Stałe definiujące dostępne grupy treningowe
 const TRAINING_GROUPS = [
-	{ label: "Group A (U-8)", value: "group_a" },
-	{ label: "Group B (U-10)", value: "group_b" },
-	{ label: "Group C (U-12)", value: "group_c" },
-	{ label: "Group D (U-14)", value: "group_d" },
+	{ label: "Grupa A (U-8)", value: "group_a" },
+	{ label: "Grupa B (U-10)", value: "group_b" },
+	{ label: "Grupa C (U-12)", value: "group_c" },
+	{ label: "Grupa D (U-14)", value: "group_d" },
 ];
 
 export default function RegisterScreen() {
@@ -22,7 +23,7 @@ export default function RegisterScreen() {
 		trainingGroup: "",
 	});
 
-	// Stany dla loadera i komunikatów błów
+	// Stany dla loadera i komunikatów błędów
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState("");
 
@@ -92,140 +93,190 @@ export default function RegisterScreen() {
 	};
 
 	return (
-		<ScrollView contentContainerStyle={styles.scrollContainer}>
-			<View style={styles.container}>
-				{/* Logo i nagłówek */}
-				<View style={styles.logoContainer}>
-					<Text style={styles.logoText}>MLAWIANKA</Text>
+		<KeyboardAvoidingView
+			behavior={Platform.OS === "ios" ? "padding" : "height"}
+			style={styles.keyboardView}
+		>
+			<ScrollView contentContainerStyle={styles.scrollContainer}>
+				<View style={styles.container}>
+					{/* Karta rejestracji */}
+					<View style={styles.card}>
+						<Title style={styles.cardTitle}>Utwórz konto zawodnika</Title>
+						<Text style={styles.cardSubtitle}>Wypełnij poniższe dane, aby dołączyć</Text>
+
+						<TextInput
+							label="Imię"
+							value={formData.firstName}
+							onChangeText={(value) => updateFormData("firstName", value)}
+							mode="outlined"
+							style={styles.input}
+							activeOutlineColor={COLORS.primary}
+							outlineColor={COLORS.border}
+						/>
+
+						<TextInput
+							label="Nazwisko"
+							value={formData.lastName}
+							onChangeText={(value) => updateFormData("lastName", value)}
+							mode="outlined"
+							style={styles.input}
+							activeOutlineColor={COLORS.primary}
+							outlineColor={COLORS.border}
+						/>
+
+						<TextInput
+							label="Adres E-mail"
+							value={formData.email}
+							onChangeText={(value) => updateFormData("email", value)}
+							mode="outlined"
+							style={styles.input}
+							keyboardType="email-address"
+							autoCapitalize="none"
+							activeOutlineColor={COLORS.primary}
+							outlineColor={COLORS.border}
+						/>
+
+						<TextInput
+							label="Hasło"
+							value={formData.password}
+							onChangeText={(value) => updateFormData("password", value)}
+							secureTextEntry
+							mode="outlined"
+							style={styles.input}
+							activeOutlineColor={COLORS.primary}
+							outlineColor={COLORS.border}
+						/>
+
+						{/* Sekcja wyboru grupy treningowej */}
+						<Text style={styles.label}>Wybierz grupę treningową</Text>
+						<RadioButton.Group
+							onValueChange={(value) => updateFormData("trainingGroup", value)}
+							value={formData.trainingGroup}
+						>
+							{TRAINING_GROUPS.map((group) => (
+								<View key={group.value} style={styles.radioItem}>
+									<RadioButton 
+										value={group.value} 
+										color={COLORS.primary}
+										uncheckedColor={COLORS.border}
+									/>
+									<Text 
+										onPress={() => updateFormData("trainingGroup", group.value)}
+										style={styles.radioLabel}
+									>
+										{group.label}
+									</Text>
+								</View>
+							))}
+						</RadioButton.Group>
+
+						{/* Wyświetlanie błędów */}
+						{error ? <Text style={styles.error}>{error}</Text> : null}
+
+						{/* Przyciski akcji */}
+						<Button
+							mode="contained"
+							onPress={handleRegister}
+							style={styles.button}
+							labelStyle={styles.buttonLabel}
+							loading={loading}
+							disabled={loading}
+						>
+							Zarejestruj się
+						</Button>
+
+						<Button
+							mode="text"
+							onPress={() => router.push("/auth/login")}
+							style={styles.textButton}
+							textColor={COLORS.primary}
+							disabled={loading}
+						>
+							Masz już konto? Zaloguj się
+						</Button>
+					</View>
 				</View>
-
-				<Title style={styles.title}>Utwórz konto</Title>
-
-				{/* Formularz rejestracji */}
-				<TextInput
-					label="Imię"
-					value={formData.firstName}
-					onChangeText={(value) => updateFormData("firstName", value)}
-					mode="outlined"
-					style={styles.input}
-				/>
-
-				<TextInput
-					label="Nazwisko"
-					value={formData.lastName}
-					onChangeText={(value) => updateFormData("lastName", value)}
-					mode="outlined"
-					
-					style={styles.input}
-				/>
-
-				<TextInput
-					label="Email"
-					value={formData.email}
-					onChangeText={(value) => updateFormData("email", value)}
-					
-					mode="outlined"
-					style={styles.input}
-					keyboardType="email-address"
-					autoCapitalize="none"
-				/>
-
-				<TextInput
-					label="Hasło"
-					value={formData.password}
-					onChangeText={(value) => updateFormData("password", value)}
-					secureTextEntry
-					mode="outlined"
-					style={styles.input}
-				/>
-
-				{/* Sekcja wyboru grupy treningowej */}
-				<Text style={styles.label}>Wybierz grupę treningową</Text>
-				<RadioButton.Group
-					onValueChange={(value) => updateFormData("trainingGroup", value)}
-					value={formData.trainingGroup}
-				>
-					{TRAINING_GROUPS.map((group) => (
-						<View key={group.value} style={styles.radioItem}>
-							<RadioButton value={group.value} />
-							<Text onPress={() => updateFormData("trainingGroup", group.value)}>
-								{group.label}
-							</Text>
-						</View>
-					))}
-				</RadioButton.Group>
-
-				{/* Wyświetlanie błędów */}
-				{error ? <Text style={styles.error}>{error}</Text> : null}
-
-				{/* Przyciski akcji */}
-				<Button
-					mode="contained"
-					onPress={handleRegister}
-					style={styles.button}
-					loading={loading}
-					disabled={loading}
-				>
-					Zarejestruj się
-				</Button>
-
-				<Button
-					mode="text"
-					onPress={() => router.push("/auth/login")}
-					style={styles.button}
-					disabled={loading}
-				>
-					Masz już konto? Zaloguj się
-				</Button>
-			</View>
-		</ScrollView>
+			</ScrollView>
+		</KeyboardAvoidingView>
 	);
 }
 
-// Style komponentu
 const styles = StyleSheet.create({
+	keyboardView: {
+		flex: 1,
+		backgroundColor: COLORS.background,
+	},
 	scrollContainer: {
 		flexGrow: 1,
+		justifyContent: "center",
 	},
 	container: {
 		flex: 1,
 		padding: 20,
 		justifyContent: "center",
-		backgroundColor: "#fff",
 	},
-	logoContainer: {
-		alignItems: "center",
-		marginBottom: 20,
+	card: {
+		backgroundColor: COLORS.white,
+		borderRadius: 16,
+		padding: 24,
+		shadowColor: "#000",
+		shadowOffset: { width: 0, height: 4 },
+		shadowOpacity: 0.1,
+		shadowRadius: 12,
+		elevation: 4,
 	},
-	logoText: {
-		fontSize: 32,
-		fontWeight: 'bold',
-		color: '#1e3a8a',
-	},
-	title: {
-		fontSize: 24,
-		marginBottom: 20,
+	cardTitle: {
+		fontSize: 22,
+		fontWeight: "bold",
+		color: COLORS.primary,
 		textAlign: "center",
 	},
+	cardSubtitle: {
+		fontSize: 14,
+		color: COLORS.textLight,
+		textAlign: "center",
+		marginBottom: 20,
+		marginTop: 4,
+	},
 	input: {
-		marginBottom: 10,
+		marginBottom: 12,
+		backgroundColor: COLORS.white,
 	},
 	label: {
 		fontSize: 16,
+		fontWeight: "bold",
+		color: COLORS.textDark,
 		marginBottom: 8,
-		marginTop: 8,
+		marginTop: 12,
 	},
 	radioItem: {
 		flexDirection: "row",
 		alignItems: "center",
 		marginVertical: 4,
 	},
+	radioLabel: {
+		fontSize: 15,
+		color: COLORS.textDark,
+		marginLeft: 8,
+	},
 	button: {
-		marginTop: 10,
+		marginTop: 20,
+		backgroundColor: COLORS.primary,
+		paddingVertical: 4,
+		borderRadius: 8,
+	},
+	buttonLabel: {
+		fontSize: 16,
+		fontWeight: "bold",
+		color: COLORS.white,
+	},
+	textButton: {
+		marginTop: 12,
 	},
 	error: {
-		color: "red",
-		marginBottom: 10,
+		color: COLORS.error,
+		marginTop: 12,
 		textAlign: "center",
+		fontSize: 14,
 	},
 });

@@ -1,97 +1,281 @@
-import React, { useState } from "react";
-import { View, StyleSheet, ScrollView, ImageBackground } from "react-native";
-import { Card, Title, Button, Text } from "react-native-paper";
-
-// Przykładowe dane treningów (do zastąpienia danymi z API)
-const SAMPLE_TRAININGS = [
-	{
-		id: "1",
-		title: "Trening Grupa A",
-		date: "2024-03-21",
-		time: "16:00",
-		available: true,
-	},
-	// ... więcej przykładowych treningów
-];
+import React, { useState, useEffect } from "react";
+import { View, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from "react-native";
+import { Card, Title, Button, Text, Paragraph } from "react-native-paper";
+import { router } from "expo-router";
+import { supabase } from "../../lib/supabase";
+import { useAuth } from "../../contexts/AuthContext";
+import { COLORS } from "../../css/colors";
 
 export default function BookingScreen() {
-	// Stan przechowujący listę treningów i rezerwacji
-	const [trainings, setTrainings] = useState(SAMPLE_TRAININGS);
+	const { user } = useAuth();
+	const [trainings, setTrainings] = useState([]);
 	const [userBookings, setUserBookings] = useState([]);
+	const [loading, setLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
+	const [actionLoadingId, setActionLoadingId] = useState(null);
 
-	// Funkcja obsługująca rezerwację treningu
-	const handleBooking = (trainingId) => {
-		// Tutaj logika rezerwacji (do implementacji)
-		console.log(`Zarezerwowano trening: ${trainingId}`);
+	const fetchData = async () => {
+		if (!user) {
+			setLoading(false);
+			return;
+		}
+		try {
+			// Pobierz dostępne treningi
+			const { data: trainingsData, error: trainingsError } = await supabase
+				.from("trainings")
+				.select("*")
+				.order("id", { ascending: true });
+
+			if (trainingsError) throw trainingsError;
+			setTrainings(trainingsData || []);
+
+			// Pobierz rezerwacje zalogowanego użytkownika
+			const { data: bookingsData, error: bookingsError } = await supabase
+				.from("bookings")
+				.select("training_id")
+				.eq("user_id", user.id);
+
+			if (bookingsError) throw bookingsError;
+			setUserBookings(bookingsData.map(b => b.training_id) || []);
+		} catch (error) {
+			console.error("Error fetching booking data:", error);
+		} finally {
+			setLoading(false);
+			setRefreshing(false);
+		}
 	};
 
+	useEffect(() => {
+		fetchData();
+	}, [user]);
+
+	const onRefresh = () => {
+		setRefreshing(true);
+		fetchData();
+	};
+
+	// Sprawdzenie, czy dany trening jest już zarezerwowany przez zalogowanego użytkownika
+	const isBooked = (trainingId) => {
+		return userBookings.includes(trainingId);
+	};
+
+	// Obsługa rezerwacji i jej odwoływania
+	const handleBookingToggle = async (trainingId) => {
+		if (!user) return;
+		setActionLoadingId(trainingId);
+		try {
+			if (isBooked(trainingId)) {
+				// Odwołaj rezerwację
+				const { error } = await supabase
+					.from("bookings")
+					.delete()
+					.eq("user_id", user.id)
+					.eq("training_id", trainingId);
+
+				if (error) throw error;
+				setUserBookings(prev => prev.filter(id => id !== trainingId));
+			} else {
+				// Dodaj rezerwację
+				const { error } = await supabase
+					.from("bookings")
+					.insert([
+						{
+							user_id: user.id,
+							training_id: trainingId,
+						}
+					]);
+
+				if (error) throw error;
+				setUserBookings(prev => [...prev, trainingId]);
+			}
+		} catch (error) {
+			console.error("Booking action error:", error);
+		} finally {
+			setActionLoadingId(null);
+		}
+	};
+
+	if (loading) {
+		return (
+			<View style={styles.loadingContainer}>
+				<ActivityIndicator size="large" color={COLORS.primary} />
+			</View>
+		);
+	}
+
+	if (!user) {
+		return (
+			<View style={styles.guestContainer}>
+				<Card style={styles.guestCard}>
+					<Card.Content style={styles.guestContent}>
+						<Title style={styles.guestTitle}>Strefa Rezerwacji</Title>
+						<Paragraph style={styles.guestDescription}>
+							Rezerwowanie miejsc na treningi jest dostępne wyłącznie dla zalogowanych zawodników klubu Mławianka Mława.
+						</Paragraph>
+						<Button
+							mode="contained"
+							onPress={() => router.push("/auth/login")}
+							style={styles.guestButton}
+							labelStyle={styles.guestButtonLabel}
+						>
+							Zaloguj się lub zarejestruj
+						</Button>
+					</Card.Content>
+				</Card>
+			</View>
+		);
+	}
+
 	return (
-		<ImageBackground
-			source={require("../assets/logo.png")}
-			style={styles.backgroundImage}
-			resizeMode="contain"
-		>
-			<View style={styles.overlay}>
-				<ScrollView style={styles.container}>
-					{/* Sekcja dostępnych treningów */}
-					<View style={styles.section}>
-						<Title style={styles.sectionTitle}>
-							Dostępne treningi
-						</Title>
-						{trainings.map((training) => (
+		<View style={styles.container}>
+			<ScrollView
+				contentContainerStyle={styles.scrollContainer}
+				refreshControl={
+					<RefreshControl
+						refreshing={refreshing}
+						onRefresh={onRefresh}
+						colors={[COLORS.primary]}
+					/>
+				}
+			>
+				<Title style={styles.mainTitle}>Zapisy na treningi</Title>
+
+				{trainings.length === 0 ? (
+					<View style={styles.emptyContainer}>
+						<Text style={styles.emptyText}>Brak wolnych terminów treningowych.</Text>
+					</View>
+				) : (
+					trainings.map((training) => {
+						const booked = isBooked(training.id);
+						const isActionPending = actionLoadingId === training.id;
+
+						return (
 							<Card key={training.id} style={styles.card}>
 								<Card.Content>
-									<Title>{training.title}</Title>
-									<Text>{`Data: ${training.date}`}</Text>
-									<Text>{`Godzina: ${training.time}`}</Text>
+									<Title style={styles.cardTitle}>{training.title}</Title>
+									<Text style={styles.infoText}>{`Miejsce: ${training.location}`}</Text>
+									<Text style={styles.infoText}>{`Termin: ${training.time}`}</Text>
+									<Text style={styles.infoText}>{`Trener: ${training.coach}`}</Text>
+
 									<Button
-										mode="contained"
-										onPress={() =>
-											handleBooking(training.id)
-										}
-										disabled={!training.available}
-										style={styles.button}
+										mode={booked ? "outlined" : "contained"}
+										onPress={() => handleBookingToggle(training.id)}
+										style={[
+											styles.button,
+											booked ? styles.buttonBooked : styles.buttonUnbooked
+										]}
+										textColor={booked ? COLORS.error : COLORS.white}
+										loading={isActionPending}
+										disabled={isActionPending}
 									>
-										{training.available
-											? "Zarezerwuj"
-											: "Brak miejsc"}
+										{booked ? "Odwołaj rezerwację" : "Zarezerwuj miejsce"}
 									</Button>
 								</Card.Content>
 							</Card>
-						))}
-					</View>
-				</ScrollView>
-			</View>
-		</ImageBackground>
+						);
+					})
+				)}
+			</ScrollView>
+		</View>
 	);
 }
 
 const styles = StyleSheet.create({
-	backgroundImage: {
-		flex: 1,
-		width: "100%",
-	},
-	overlay: {
-		flex: 1,
-		backgroundColor: "rgba(255, 255, 255, 0.95)",
-	},
 	container: {
 		flex: 1,
+		backgroundColor: COLORS.background,
 	},
-	section: {
+	loadingContainer: {
+		flex: 1,
+		justifyContent: "center",
+		alignItems: "center",
+		backgroundColor: COLORS.background,
+	},
+	scrollContainer: {
 		padding: 16,
 	},
-	sectionTitle: {
-		marginBottom: 16,
-		color: "#1e3a8a",
+	mainTitle: {
 		textAlign: "center",
+		marginBottom: 20,
+		color: COLORS.primary,
+		fontSize: 22,
+		fontWeight: "bold",
 	},
 	card: {
 		marginBottom: 16,
-		backgroundColor: "rgba(255, 255, 255, 0.9)",
+		backgroundColor: COLORS.white,
+		borderRadius: 12,
+		shadowColor: "#000",
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.05,
+		shadowRadius: 8,
+		elevation: 2,
+	},
+	cardTitle: {
+		color: COLORS.textDark,
+		fontSize: 18,
+		fontWeight: "bold",
+		marginBottom: 8,
+	},
+	infoText: {
+		color: COLORS.textLight,
+		fontSize: 14,
+		marginVertical: 2,
 	},
 	button: {
-		marginTop: 8,
-		backgroundColor: "#1e3a8a",
+		marginTop: 16,
+		borderRadius: 8,
+	},
+	buttonUnbooked: {
+		backgroundColor: COLORS.primary,
+	},
+	buttonBooked: {
+		borderColor: COLORS.error,
+		borderWidth: 1,
+	},
+	emptyContainer: {
+		padding: 32,
+		alignItems: "center",
+	},
+	emptyText: {
+		color: COLORS.textLight,
+		fontSize: 15,
+	},
+	guestContainer: {
+		flex: 1,
+		justifyContent: "center",
+		padding: 24,
+		backgroundColor: COLORS.background,
+	},
+	guestCard: {
+		backgroundColor: COLORS.white,
+		borderRadius: 16,
+		padding: 16,
+		elevation: 4,
+	},
+	guestContent: {
+		alignItems: "center",
+	},
+	guestTitle: {
+		color: COLORS.primary,
+		fontWeight: "bold",
+		fontSize: 20,
+		marginBottom: 8,
+	},
+	guestDescription: {
+		textAlign: "center",
+		color: COLORS.textLight,
+		marginBottom: 20,
+		fontSize: 14,
+		lineHeight: 20,
+	},
+	guestButton: {
+		backgroundColor: COLORS.primary,
+		width: "100%",
+		borderRadius: 8,
+	},
+	guestButtonLabel: {
+		fontWeight: "bold",
+		color: COLORS.white,
 	},
 });
