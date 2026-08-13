@@ -2,12 +2,7 @@ import React, { useState } from "react";
 import { View, StyleSheet, ImageBackground, Image } from "react-native";
 import { TextInput, Button, Title, Text } from "react-native-paper";
 import { router } from "expo-router";
-
-// Dane testowe do lokalnego logowania
-const TEST_CREDENTIALS = {
-	email: "admin@mlawianka.pl",
-	password: "admin123",
-};
+import { supabase } from "../../lib/supabase";
 
 export default function LoginScreen() {
 	const [email, setEmail] = useState("");
@@ -16,8 +11,9 @@ export default function LoginScreen() {
 	const [error, setError] = useState("");
 
 	const handleLogin = async () => {
-		if (!email || !password) {
-			setError("Please fill in all fields");
+		const trimmedEmail = email ? email.trim() : "";
+		if (!trimmedEmail || !password) {
+			setError("Proszę wypełnić wszystkie pola");
 			return;
 		}
 
@@ -25,17 +21,16 @@ export default function LoginScreen() {
 		setError("");
 
 		try {
-			// Proste lokalne sprawdzenie poświadczeń
-			if (
-				email === TEST_CREDENTIALS.email &&
-				password === TEST_CREDENTIALS.password
-			) {
-				router.replace("/news");
-			} else {
-				throw new Error("Invalid credentials");
-			}
+			const { error: authError } = await supabase.auth.signInWithPassword({
+				email: trimmedEmail,
+				password,
+			});
+
+			if (authError) throw authError;
+
+			router.replace("/news");
 		} catch (error) {
-			setError("Invalid email or password");
+			setError(error.message || "Nieprawidłowy email lub hasło");
 			console.error("Login error:", error);
 		} finally {
 			setLoading(false);

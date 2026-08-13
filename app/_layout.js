@@ -1,10 +1,13 @@
 import { Stack } from "expo-router";
 import { PaperProvider } from "react-native-paper";
+import { AuthProvider } from "../contexts/AuthContext";
 
 export default function Layout() {
 	return (
-		<PaperProvider>
-			<Stack screenOptions={{ headerShown: false }} />
-		</PaperProvider>
+		<AuthProvider>
+			<PaperProvider>
+				<Stack screenOptions={{ headerShown: false }} />
+			</PaperProvider>
+		</AuthProvider>
 	);
 }

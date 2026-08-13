@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { View, StyleSheet, ScrollView } from "react-native";
 import { TextInput, Button, Title, Text, RadioButton } from "react-native-paper";
 import { router } from "expo-router";
+import { supabase } from "../../lib/supabase";
 
 // Stałe definiujące dostępne grupy treningowe
 const TRAINING_GROUPS = [
@@ -10,9 +11,6 @@ const TRAINING_GROUPS = [
 	{ label: "Group C (U-12)", value: "group_c" },
 	{ label: "Group D (U-14)", value: "group_d" },
 ];
-
-// Testowa baza użytkowników (symulacja lokalnej bazy danych)
-const TEST_USERS = [];
 
 export default function RegisterScreen() {
 	// Stan formularza przechowujący wszystkie pola
@@ -24,16 +22,17 @@ export default function RegisterScreen() {
 		trainingGroup: "",
 	});
 
-	// Stany dla loadera i komunikatów błędów
+	// Stany dla loadera i komunikatów błów
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState("");
 
 	// Funkcja obsługująca rejestrację użytkownika
 	const handleRegister = async () => {
 		const { firstName, lastName, email, password, trainingGroup } = formData;
+		const trimmedEmail = email ? email.trim() : "";
 
 		// Sprawdzenie czy wszystkie pola są wypełnione
-		if (!firstName || !lastName || !email || !password || !trainingGroup) {
+		if (!firstName || !lastName || !trimmedEmail || !password || !trainingGroup) {
 			setError("Proszę wypełnić wszystkie pola");
 			return;
 		}
@@ -42,25 +41,45 @@ export default function RegisterScreen() {
 		setError("");
 
 		try {
-			// Symulacja opóźnienia serwera
-			await new Promise(resolve => setTimeout(resolve, 1000));
-
-			// Sprawdzenie czy email jest już zajęty
-			if (TEST_USERS.some(user => user.email === email)) {
-				throw new Error("Ten email jest już zajęty");
-			}
-
-			// Dodanie nowego użytkownika do testowej bazy
-			TEST_USERS.push({
-				id: Date.now().toString(),
-				...formData
+			// Rejestracja w Supabase Auth
+			const { data: authData, error: authError } = await supabase.auth.signUp({
+				email: trimmedEmail,
+				password,
+				options: {
+					data: {
+						first_name: firstName,
+						last_name: lastName,
+						training_group: trainingGroup,
+						role: "user",
+					},
+				},
 			});
+
+			if (authError) throw authError;
+
+			// Dodanie profilu do tabeli profiles w bazie danych
+			if (authData?.user) {
+				const { error: profileError } = await supabase.from("profiles").insert([
+					{
+						id: authData.user.id,
+						first_name: firstName,
+						last_name: lastName,
+						email: email,
+						role: "user",
+						training_group: trainingGroup,
+					},
+				]);
+
+				if (profileError) {
+					console.warn("Błąd zapisu profilu:", profileError.message);
+				}
+			}
 
 			// Przekierowanie do strony logowania
 			router.push("/auth/login");
 			
 		} catch (error) {
-			setError(error.message);
+			setError(error.message || "Błąd podczas rejestracji");
 			console.error("Błąd rejestracji:", error);
 		} finally {
 			setLoading(false);
