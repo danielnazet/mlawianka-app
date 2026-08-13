@@ -1,29 +1,36 @@
 {
-	"expo": {
-		"name": "mlawianka",
-		"slug": "mlawianka",
-		"version": "1.0.0",
-		"orientation": "portrait",
-		"scheme": "mlawianka",
-		"icon": "./assets/icon.png",
-		"userInterfaceStyle": "light",
-		"splash": {
-			"image": "./assets/splash.png",
-			"resizeMode": "contain",
-			"backgroundColor": "#ffffff"
-		},
-		"assetBundlePatterns": ["**/*"],
-		"ios": {
-			"supportsTablet": true,
-			"bundleIdentifier": "com.mlawianka.app"
-		},
-		"android": {
-			"adaptiveIcon": {
-				"foregroundImage": "./assets/adaptive-icon.png",
-				"backgroundColor": "#ffffff"
-			},
-			"package": "com.mlawianka.app"
-		},
-		"plugins": ["expo-router"]
-	}
+  "expo": {
+    "name": "mlawianka",
+    "slug": "mlawianka",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "mlawianka",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mlawianka.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.mlawianka.app"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-web-browser",
+      "@react-native-community/datetimepicker"
+    ]
+  }
 }
