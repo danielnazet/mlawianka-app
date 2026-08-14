@@ -1,3 +1,4 @@
+import React from "react";
 import { Stack } from "expo-router";
 import { PaperProvider } from "react-native-paper";
 import { AuthProvider } from "../contexts/AuthContext";

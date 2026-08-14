@@ -16,9 +16,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 	},
 });
 
-
 export const createAdminAccount = async () => {
-	const adminEmail = "admin@mlawianka.pl";
+	const adminEmail = "admin@gksstrzegowo.pl";
 	const adminPassword = "admin123";
 
 	try {
@@ -30,7 +29,7 @@ export const createAdminAccount = async () => {
 				options: {
 					data: {
 						first_name: "Admin",
-						last_name: "Mlawianka",
+						last_name: "Strzegowo",
 						role: "admin",
 					},
 				},
@@ -38,13 +37,14 @@ export const createAdminAccount = async () => {
 		);
 
 		if (authError) throw authError;
+		if (!authData.user) throw new Error("Nie udało się utworzyć użytkownika.");
 
 		// Następnie dodamy profil do tabeli profiles
 		const { error: profileError } = await supabase.from("profiles").insert([
 			{
 				id: authData.user.id,
 				first_name: "Admin",
-				last_name: "Mlawianka",
+				last_name: "Strzegowo",
 				email: adminEmail,
 				role: "admin",
 			},

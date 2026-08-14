@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "mlawianka",
-    "slug": "mlawianka",
+    "name": "GKS Strzegowo",
+    "slug": "gks-strzegowo",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "mlawianka",
+    "scheme": "gksstrzegowo",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
@@ -17,14 +17,14 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.mlawianka.app"
+      "bundleIdentifier": "com.gksstrzegowo.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.mlawianka.app"
+      "package": "com.gksstrzegowo.app"
     },
     "plugins": [
       "expo-router",

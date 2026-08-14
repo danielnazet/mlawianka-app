@@ -1,8 +1,12 @@
+import React from "react";
 import { Tabs } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import { COLORS } from "../../css/colors";
+import { useAuth } from "../../contexts/AuthContext";
 
 export default function TabLayout() {
+	const { user } = useAuth();
+
 	return (
 		<Tabs
 			screenOptions={{
@@ -36,7 +40,7 @@ export default function TabLayout() {
 			<Tabs.Screen
 				name="training"
 				options={{
-					title: "Treningi",
+					title: "Harmonogram",
 					tabBarIcon: ({ color }) => (
 						<MaterialIcons
 							name="sports-soccer"
@@ -54,6 +58,21 @@ export default function TabLayout() {
 					tabBarIcon: ({ color }) => (
 						<MaterialIcons
 							name="event"
+							size={24}
+							color={color}
+						/>
+					),
+				}}
+			/>
+
+			<Tabs.Screen
+				name="chat"
+				options={{
+					title: "Czat",
+					href: user ? undefined : null, // Ukryj tabę jeśli użytkownik jest niezalogowany
+					tabBarIcon: ({ color }) => (
+						<MaterialIcons
+							name="chat"
 							size={24}
 							color={color}
 						/>
