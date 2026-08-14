@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "../lib/supabase";
 import { User } from "@supabase/supabase-js";
+import { View, ActivityIndicator } from "react-native";
 
 import { Profile } from "../types";
 export { Profile };
@@ -33,7 +34,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 				.single();
 
 			if (error) {
-				console.error("Error fetching profile inside provider:", error);
+				if (error.code !== "PGRST116") {
+					console.error("Error fetching profile inside provider:", error);
+				}
 				setProfile(null);
 			} else {
 				setProfile(data);
@@ -87,7 +90,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 	return (
 		<AuthContext.Provider value={value}>
-			{!loading && children}
+			{loading ? (
+				<View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" }}>
+					<ActivityIndicator size="large" color="#1e40af" />
+				</View>
+			) : (
+				children
+			)}
 		</AuthContext.Provider>
 	);
 }

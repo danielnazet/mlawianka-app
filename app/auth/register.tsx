@@ -20,6 +20,8 @@ export default function RegisterScreen() {
 		teamId: "",
 		childFirstName: "",
 		childLastName: "",
+		age: "",
+		childAge: "",
 	});
 
 	const [teams, setTeams] = useState<Team[]>([]);
@@ -61,8 +63,28 @@ export default function RegisterScreen() {
 		fetchTeams();
 	}, []);
 
+	const findTeamIdByAge = (ageNum: number, teamsList: Team[]) => {
+		if (ageNum < 9) {
+			const t = teamsList.find(x => x.name.includes("U-8"));
+			if (t) return t.id;
+		} else if (ageNum >= 9 && ageNum <= 10) {
+			const t = teamsList.find(x => x.name.includes("U-10"));
+			if (t) return t.id;
+		} else if (ageNum >= 11 && ageNum <= 12) {
+			const t = teamsList.find(x => x.name.includes("U-12"));
+			if (t) return t.id;
+		} else if (ageNum >= 13 && ageNum <= 15) {
+			const t = teamsList.find(x => x.name.includes("U-14"));
+			if (t) return t.id;
+		} else {
+			const t = teamsList.find(x => x.name.includes("Senior") || x.name.includes("Główny"));
+			if (t) return t.id;
+		}
+		return teamsList.length > 0 ? teamsList[0].id : null;
+	};
+
 	const handleRegister = async () => {
-		const { firstName, lastName, email, password, teamId, childFirstName, childLastName } = formData;
+		const { firstName, lastName, email, password, childFirstName, childLastName, age, childAge } = formData;
 		const trimmedEmail = email ? email.trim() : "";
 
 		// Basic validation
@@ -71,20 +93,36 @@ export default function RegisterScreen() {
 			return;
 		}
 
-		if (role === "player" && !teamId) {
-			setError("Proszę wybrać zespół");
-			return;
+		if (role === "player") {
+			if (!age) {
+				setError("Proszę podać wiek");
+				return;
+			}
 		}
 
-		if (role === "parent" && (!childFirstName || !childLastName)) {
-			setError("Proszę podać imię i nazwisko dziecka");
-			return;
+		if (role === "parent") {
+			if (!childFirstName || !childLastName) {
+				setError("Proszę podać imię i nazwisko dziecka");
+				return;
+			}
+			if (!childAge) {
+				setError("Proszę podać wiek dziecka");
+				return;
+			}
 		}
 
 		setLoading(true);
 		setError("");
 
 		try {
+			// Wyznaczamy team_id automatycznie na podstawie podanego wieku
+			let calculatedTeamId: number | null = null;
+			if (role === "player") {
+				calculatedTeamId = findTeamIdByAge(parseInt(age), teams);
+			} else {
+				calculatedTeamId = findTeamIdByAge(parseInt(childAge), teams);
+			}
+
 			// Register in Auth
 			const signUpOptions: any = {
 				email: trimmedEmail,
@@ -94,15 +132,17 @@ export default function RegisterScreen() {
 						first_name: firstName,
 						last_name: lastName,
 						role: role,
+						team_id: calculatedTeamId,
 					},
 				},
 			};
 
 			if (role === "player") {
-				signUpOptions.options.data.team_id = parseInt(teamId);
+				signUpOptions.options.data.age = parseInt(age);
 			} else {
 				signUpOptions.options.data.child_first_name = childFirstName;
 				signUpOptions.options.data.child_last_name = childLastName;
+				signUpOptions.options.data.child_age = parseInt(childAge);
 			}
 
 			const { data: authData, error: authError } = await supabase.auth.signUp(signUpOptions);
@@ -117,13 +157,15 @@ export default function RegisterScreen() {
 					last_name: lastName,
 					email: trimmedEmail,
 					role: role,
+					team_id: calculatedTeamId,
 				};
 
 				if (role === "player") {
-					profileData.team_id = parseInt(teamId);
+					profileData.age = parseInt(age);
 				} else {
 					profileData.child_first_name = childFirstName;
 					profileData.child_last_name = childLastName;
+					profileData.child_age = parseInt(childAge);
 				}
 
 				const { error: profileError } = await supabase.from("profiles").insert([profileData]);
@@ -242,26 +284,20 @@ export default function RegisterScreen() {
 								textColor={COLORS.textDark}
 							/>
 
-							{/* Jeśli Zawodnik: Wybór Zespołu */}
+							{/* Jeśli Zawodnik: Wiek */}
 							{role === "player" && (
-								<View>
-									<Text style={styles.label}>Wybierz zespół / grupę</Text>
-									<RadioButton.Group
-										onValueChange={(value) => updateFormData("teamId", value)}
-										value={formData.teamId}
-									>
-										{teams.map((team) => (
-											<View key={team.id} style={styles.radioItem}>
-												<RadioButton value={team.id.toString()} color={COLORS.primary} />
-												<Text
-													onPress={() => updateFormData("teamId", team.id.toString())}
-													style={styles.radioLabel}
-												>
-													{team.name}
-												</Text>
-											</View>
-										))}
-									</RadioButton.Group>
+								<View style={{ marginBottom: 6 }}>
+									<TextInput
+										label="Wiek zawodnika"
+										value={formData.age}
+										onChangeText={(value) => updateFormData("age", value.replace(/[^0-9]/g, ""))}
+										mode="outlined"
+										style={styles.input}
+										keyboardType="numeric"
+										activeOutlineColor={COLORS.primary}
+										outlineColor={COLORS.border}
+										textColor={COLORS.textDark}
+									/>
 								</View>
 							)}
 
@@ -285,6 +321,17 @@ export default function RegisterScreen() {
 										onChangeText={(value) => updateFormData("childLastName", value)}
 										mode="outlined"
 										style={styles.input}
+										activeOutlineColor={COLORS.primary}
+										outlineColor={COLORS.border}
+										textColor={COLORS.textDark}
+									/>
+									<TextInput
+										label="Wiek dziecka"
+										value={formData.childAge}
+										onChangeText={(value) => updateFormData("childAge", value.replace(/[^0-9]/g, ""))}
+										mode="outlined"
+										style={styles.input}
+										keyboardType="numeric"
 										activeOutlineColor={COLORS.primary}
 										outlineColor={COLORS.border}
 										textColor={COLORS.textDark}
@@ -313,6 +360,17 @@ export default function RegisterScreen() {
 								disabled={loading}
 							>
 								Masz już konto? Zaloguj się
+							</Button>
+
+							<Button
+								mode="text"
+								onPress={() => router.replace("/news")}
+								style={styles.textButton}
+								textColor={COLORS.textLight}
+								disabled={loading}
+								icon="arrow-left"
+							>
+								Powrót do Wiadomości
 							</Button>
 						</View>
 					</View>

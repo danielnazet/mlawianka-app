@@ -7,5 +7,7 @@ export interface Profile {
 	team_id?: number | null;
 	child_first_name?: string | null;
 	child_last_name?: string | null;
+	age?: number | null;
+	child_age?: number | null;
 	created_at?: string;
 }

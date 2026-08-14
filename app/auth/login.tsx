@@ -116,6 +116,17 @@ export default function LoginScreen() {
 							>
 								Nie masz konta? Zarejestruj się
 							</Button>
+
+							<Button
+								mode="text"
+								onPress={() => router.replace("/news")}
+								style={styles.textButton}
+								textColor={COLORS.textLight}
+								disabled={loading}
+								icon="arrow-left"
+							>
+								Powrót do Strony Głównej
+							</Button>
 						</View>
 					</View>
 				</ScrollView>

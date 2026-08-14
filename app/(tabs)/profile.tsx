@@ -62,12 +62,14 @@ export default function ProfileScreen() {
 		setLogoutLoading(true);
 		try {
 			const { error } = await supabase.auth.signOut();
-			if (error) throw error;
-			router.replace("/news");
+			if (error && error.message !== "Auth session missing!") {
+				throw error;
+			}
 		} catch (error) {
 			console.error("Logout error:", error);
 		} finally {
 			setLogoutLoading(false);
+			router.replace("/news");
 		}
 	};
 

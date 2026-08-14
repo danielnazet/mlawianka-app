@@ -247,14 +247,14 @@ export default function TrainingScreen() {
 								{
 									value: "trainings",
 									label: "Treningi",
-									icon: "sports-soccer",
+									icon: "soccer",
 									checkedColor: COLORS.white,
 									style: activeTab === "trainings" ? styles.activeTabButton : styles.inactiveTabButton,
 								},
 								{
 									value: "matches",
 									label: "Mecze",
-									icon: "event",
+									icon: "calendar",
 									checkedColor: COLORS.white,
 									style: activeTab === "matches" ? styles.activeTabButton : styles.inactiveTabButton,
 								},

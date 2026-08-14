@@ -1,3 +1,10 @@
+Moje przemyslenia:
+Rejestracja -> zawodnik -> Zespol i grupe przypisuje sytem zalezy jaki weik jest podany.
+Rejestracja -> Rodzic -> Dzieci -> system przypisze im grupy na podstawie wieku. Administraor moze recznie zmienic grupe dziecka oraz zawodnika
+Strona logowania - > brak buttona na powrót do strony z aktualnosciami dlaczego nie ma klawiszy nawigacji na dole?
+Rejestracja brak buttona na powrot oraz nawigacji
+
+
 # Plan Działania (Roadmap) – Aplikacja Mlawianka
 
 Ten dokument przedstawia podsumowanie wykonanych prac oraz plan dalszego rozwoju aplikacji uzgodniony podczas dzisiejszych prac.
@@ -51,3 +58,6 @@ Ten dokument przedstawia podsumowanie wykonanych prac oraz plan dalszego rozwoju
 ### Krok 3: Dalsze ulepszenia UI/UX i Powiadomienia
 * Wprowadzenie ładniejszych kart treningowych z dynamicznymi statusami zapełnienia (np. "Zostało 3 z 15 miejsc").
 * Wyświetlanie na profilu zawodnika listy jego nadchodzących, zarezerwowanych treningów w ładnej formie graficznej.
+
+
+
