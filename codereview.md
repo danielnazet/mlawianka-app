@@ -139,3 +139,28 @@ npx expo start -c
 | [`supabase/migrations/20260814000100_create_admin.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260814000100_create_admin.sql) | **Nowy** | Migracja SQL tworząca konto głównego admina. |
 | [`supabase/migrations/20260814000200_news_rls.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260814000200_news_rls.sql) | **Nowy** | Reguły zapisu RLS dla tabeli news umożliwiające adminowi dodawanie aktualności. |
 | [`supabase/migrations/20260814000300_storage_bucket.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260814000300_storage_bucket.sql) | **Nowy** | Utworzenie kubełka storage `news-images` i przypisanie polityk wgrania zdjęć. |
+| [`supabase/migrations/20260814000400_news_important.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260814000400_news_important.sql) | **Nowy** | Dodanie kolumny `is_important` do tabeli news. |
+
+---
+
+## 🔄 Najnowsze Zmiany i Udoskonalenia (Wdrożone Dzisiaj)
+
+1. **Wyróżnianie i Przypinanie Aktualności**:
+   - Dodano kolumnę `is_important` do tabeli `news` (domyślnie `false`).
+   - Zaktualizowano zapytanie w `fetchData` w celu sortowania (`is_important DESC, created_at DESC`). Najważniejsze posty są zawsze przypięte na samej górze.
+   - Wdrożono czytelną separację badge'ów ("NAJWAŻNIEJSZE" dla przypiętych ważnych wiadomości, "NAJNOWSZE" dla standardowych).
+   - Dodano przełącznik do formularza dodawania i edycji newsów: *"Najważniejsza wiadomość (Przypnij na górze)"*.
+2. **Dynamiczny Parser IP (Localhost/127.0.0.1)**:
+   - Funkcja `getNewsImage` automatycznie wykrywa lokalne adresy loopback z Supabase CLI i podmienia je na host IP z konfiguracji `.env`, dzięki czemu telefony testujące w sieci lokalnej bez problemu wczytują przesłane zdjęcia.
+3. **Wgrywanie Plików w Expo SDK 54**:
+   - Wyeliminowano błąd tworzenia pustych 0-bajtowych plików w storage przez natywny `fetch` na lokalnych plikach.
+   - Zaimplementowano bezbłędny przesył binarny: plik z telefonu jest odczytywany jako Base64 przez `expo-file-system/legacy`, konwertowany do standardowego bufora `ArrayBuffer` przez `base64-arraybuffer` i przesyłany bezpośrednio do Supabase Storage.
+4. **Administracyjne Zarządzanie Newsami (Gesty Swipe-Left)**:
+   - Owinięto karty newsów w natywny komponent `<Swipeable>` dla zalogowanych użytkowników z rolą `admin`.
+   - Przesunięcie karty w lewo odsłania dwa eleganckie, dopasowane do wysokości karty przyciski: **Edytuj** oraz **Usuń** (z zaokrągleniami pasującymi do rogów karty).
+   - **Edycja**: Formularz ładuje dotychczasowe dane i wykonuje zapytanie `update()` w Supabase.
+   - **Usuwanie**: Po kliknięciu i zatwierdzeniu okna `Alert`, news jest usuwany z bazy danych, a powiązany z nim plik graficzny jest automatycznie kasowany z kubełka storage.
+5. **Przekierowanie po Wylogowaniu**:
+   - Zmieniono domyślny cel przekierowania po wylogowaniu z `/auth/login` na główny ekran z listą aktualności `/news`. Niezalogowani użytkownicy mogą teraz swobodnie czytać publiczne newsy po wylogowaniu.
+6. **Usunięcie Logów Diagnostycznych**:
+   - Usunięto z kodu tymczasowe komunikaty `[DEBUG] console.log`, oczyszczając terminal Metro i kod produkcyjny.

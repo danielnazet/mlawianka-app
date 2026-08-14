@@ -63,7 +63,7 @@ export default function ProfileScreen() {
 		try {
 			const { error } = await supabase.auth.signOut();
 			if (error) throw error;
-			router.replace("/auth/login");
+			router.replace("/news");
 		} catch (error) {
 			console.error("Logout error:", error);
 		} finally {

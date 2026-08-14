@@ -5,6 +5,7 @@ export interface NewsItem {
 	created_at: string;
 	is_first_team: boolean;
 	image_url?: string | null;
+	is_important?: boolean;
 }
 
 export interface AnnouncementItem {

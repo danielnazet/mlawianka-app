@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, FlatList, ActivityIndicator, RefreshControl, Dimensions, ImageBackground, ScrollView, TouchableOpacity, Image } from "react-native";
+import { View, StyleSheet, FlatList, ActivityIndicator, RefreshControl, Dimensions, ImageBackground, ScrollView, TouchableOpacity, Image, Alert } from "react-native";
 import { Card, Title, Paragraph, Text, Button, SegmentedButtons, Portal, Dialog, FAB, TextInput, Switch } from "react-native-paper";
 import { MaterialIcons } from "@expo/vector-icons";
 import { supabase } from "../../lib/supabase";
@@ -10,11 +10,26 @@ import { router } from "expo-router";
 import { NewsItem, AnnouncementItem, Team } from "../../types";
 import { SAMPLE_IMAGES } from "../../constants";
 import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system/legacy";
+import { decode } from "base64-arraybuffer";
+import Swipeable from "react-native-gesture-handler/Swipeable";
 
 const getNewsImage = (item: NewsItem, index: number) => {
 	if (item.image_url && item.image_url.startsWith("http") && !item.image_url.includes("unsplash.com")) {
-		// Czyści ewentualne dosłowne zapisy '\u0026' w URL powstałe przy wstrzykiwaniu SQL
-		return item.image_url.replace(/\\u0026/g, "&");
+		let url = item.image_url.replace(/\\u0026/g, "&");
+		// Jeśli adres zawiera localhost lub 127.0.0.1 (np. lokalne Supabase CLI), podmieniamy na adres hosta z EXPO_PUBLIC_SUPABASE_URL
+		const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+		if (supabaseUrl && (url.includes("localhost") || url.includes("127.0.0.1"))) {
+			try {
+				const hostMatch = supabaseUrl.match(/^https?:\/\/([^/]+)/);
+				if (hostMatch && hostMatch[1]) {
+					url = url.replace(/(localhost|127\.0\.0\.1)(:\d+)?/, hostMatch[1]);
+				}
+			} catch (e) {
+				console.warn("Błąd parsowania adresu URL Supabase:", e);
+			}
+		}
+		return url;
 	}
 	const idx = index >= 0 ? index : 0;
 	return SAMPLE_IMAGES[idx % SAMPLE_IMAGES.length];
@@ -37,6 +52,8 @@ export default function NewsScreen() {
 	const [imageUri, setImageUri] = useState<string | null>(null);
 	const [uploading, setUploading] = useState(false);
 	const [newsIsFirstTeam, setNewsIsFirstTeam] = useState(false);
+	const [newsIsImportant, setNewsIsImportant] = useState(false);
+	const [editNewsId, setEditNewsId] = useState<number | null>(null);
 	const [announcementTitle, setAnnouncementTitle] = useState("");
 	const [announcementContent, setAnnouncementContent] = useState("");
 	const [announcementTeamId, setAnnouncementTeamId] = useState("");
@@ -91,15 +108,21 @@ export default function NewsScreen() {
 	};
 
 	const uploadImage = async (uri: string): Promise<string> => {
-		const response = await fetch(uri);
-		const blob = await response.blob();
+		// Wczytywanie pliku jako ciąg Base64 za pomocą expo-file-system (unikamy pustych blobów fetch w React Native)
+		const base64 = await FileSystem.readAsStringAsync(uri, {
+			encoding: "base64",
+		});
+		
+		// Dekodowanie Base64 do ArrayBuffer
+		const arrayBuffer = decode(base64);
+		
 		const fileExt = uri.split('.').pop() || 'jpg';
 		const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
 		const filePath = fileName;
 
 		const { error } = await supabase.storage
 			.from('news-images')
-			.upload(filePath, blob, {
+			.upload(filePath, arrayBuffer, {
 				contentType: `image/${fileExt === 'png' ? 'png' : 'jpeg'}`,
 				upsert: true
 			});
@@ -113,6 +136,81 @@ export default function NewsScreen() {
 		return publicUrlData.publicUrl;
 	};
 
+	const handleStartEdit = (item: NewsItem) => {
+		setEditNewsId(item.id);
+		setNewsTitle(item.title);
+		setNewsContent(item.content);
+		setImageUri(item.image_url && item.image_url.startsWith("http") && !item.image_url.includes("unsplash.com") ? getNewsImage(item, -1) : null);
+		setNewsIsFirstTeam(item.is_first_team || false);
+		setNewsIsImportant(item.is_important || false);
+		setIsAddNewsVisible(true);
+	};
+
+	const handleCancelNewsForm = () => {
+		setEditNewsId(null);
+		setNewsTitle("");
+		setNewsContent("");
+		setImageUri(null);
+		setNewsIsFirstTeam(false);
+		setNewsIsImportant(false);
+		setIsAddNewsVisible(false);
+	};
+
+	const confirmDelete = (id: number) => {
+		Alert.alert(
+			"Usuń aktualność",
+			"Czy na pewno chcesz usunąć tę aktualność? Tej operacji nie można cofnąć.",
+			[
+				{ text: "Anuluj", style: "cancel" },
+				{
+					text: "Usuń",
+					style: "destructive",
+					onPress: () => handleDeleteNews(id),
+				},
+			]
+		);
+	};
+
+	const handleDeleteNews = async (id: number) => {
+		try {
+			setLoading(true);
+			
+			// Pobierz informację o newsie, żeby sprawdzić czy ma przypisany obrazek w Storage
+			const { data: itemData } = await supabase
+				.from("news")
+				.select("image_url")
+				.eq("id", id)
+				.single();
+				
+			// Usuń rekord z bazy danych
+			const { error } = await supabase
+				.from("news")
+				.delete()
+				.eq("id", id);
+				
+			if (error) throw error;
+			
+			// Jeśli news miał obrazek i nie był to Picsum/Unsplash, usuń go również ze Storage
+			if (itemData?.image_url && itemData.image_url.includes("news-images/")) {
+				try {
+					const fileName = itemData.image_url.split("/news-images/").pop();
+					if (fileName) {
+						await supabase.storage.from("news-images").remove([fileName]);
+					}
+				} catch (e) {
+					console.warn("Błąd usuwania pliku ze storage:", e);
+				}
+			}
+			
+			fetchData();
+		} catch (err: any) {
+			console.error("Error deleting news:", err);
+			alert("Błąd podczas usuwania aktualności: " + err.message);
+		} finally {
+			setLoading(false);
+		}
+	};
+
 	const handleAddNews = async () => {
 		if (!newsTitle.trim() || !newsContent.trim()) {
 			alert("Tytuł i treść są wymagane");
@@ -121,33 +219,45 @@ export default function NewsScreen() {
 
 		try {
 			setUploading(true);
-			let uploadedUrl = null;
+			let uploadedUrl = imageUri;
 
-			if (imageUri) {
+			// Jeśli wybrano nowe zdjęcie lokalne (np. ph:// lub file://), wgrywamy je na serwer
+			if (imageUri && (imageUri.startsWith("file://") || imageUri.startsWith("ph://") || imageUri.startsWith("content://"))) {
 				uploadedUrl = await uploadImage(imageUri);
 			}
 
-			const { error } = await supabase.from("news").insert([
-				{
-					title: newsTitle.trim(),
-					content: newsContent.trim(),
-					image_url: uploadedUrl,
-					is_first_team: newsIsFirstTeam,
-				},
-			]);
+			if (editNewsId !== null) {
+				const { error } = await supabase
+					.from("news")
+					.update({
+						title: newsTitle.trim(),
+						content: newsContent.trim(),
+						image_url: uploadedUrl,
+						is_first_team: newsIsFirstTeam,
+						is_important: newsIsImportant,
+					})
+					.eq("id", editNewsId);
 
-			if (error) throw error;
+				if (error) throw error;
+			} else {
+				const { error } = await supabase.from("news").insert([
+					{
+						title: newsTitle.trim(),
+						content: newsContent.trim(),
+						image_url: uploadedUrl,
+						is_first_team: newsIsFirstTeam,
+						is_important: newsIsImportant,
+					},
+				]);
 
-			setNewsTitle("");
-			setNewsContent("");
-			setImageUri(null);
-			setNewsIsFirstTeam(false);
-			setIsAddNewsVisible(false);
+				if (error) throw error;
+			}
 
+			handleCancelNewsForm();
 			fetchData();
 		} catch (err: any) {
-			console.error("Error adding news:", err);
-			alert("Błąd podczas dodawania aktualności: " + err.message);
+			console.error("Error saving news:", err);
+			alert("Błąd podczas zapisywania aktualności: " + err.message);
 		} finally {
 			setUploading(false);
 		}
@@ -186,10 +296,11 @@ export default function NewsScreen() {
 	const fetchData = async () => {
 		try {
 			setLoading(true);
-			// Pobierz aktualności
+			// Pobierz aktualności (najważniejsze pierwsze, potem według daty)
 			const { data: newsData, error: newsError } = await supabase
 				.from("news")
 				.select("*")
+				.order("is_important", { ascending: false })
 				.order("created_at", { ascending: false });
 
 			if (newsError) throw newsError;
@@ -224,6 +335,9 @@ export default function NewsScreen() {
 	};
 
 	useEffect(() => {
+		if (!user) {
+			setActiveTab("news");
+		}
 		fetchData();
 	}, [user, profile]);
 
@@ -246,10 +360,38 @@ export default function NewsScreen() {
 
 	const renderNewsItem = ({ item, index }: { item: NewsItem; index: number }) => {
 		const imageUrl = getNewsImage(item, index);
+		let swipeableRef: Swipeable | null = null;
+		
+		const renderRightActions = (isFeatured: boolean) => (progress: any, dragX: any) => {
+			return (
+				<View style={isFeatured ? styles.swipeActionsContainerFeatured : styles.swipeActionsContainerSmall}>
+					<TouchableOpacity
+						style={[styles.swipeActionBtn, styles.editActionBtn]}
+						onPress={() => {
+							swipeableRef?.close();
+							handleStartEdit(item);
+						}}
+					>
+						<MaterialIcons name="edit" size={22} color={COLORS.white} />
+						<Text style={styles.swipeActionText}>Edytuj</Text>
+					</TouchableOpacity>
+					<TouchableOpacity
+						style={[styles.swipeActionBtn, styles.deleteActionBtn]}
+						onPress={() => {
+							swipeableRef?.close();
+							confirmDelete(item.id);
+						}}
+					>
+						<MaterialIcons name="delete" size={22} color={COLORS.white} />
+						<Text style={styles.swipeActionText}>Usuń</Text>
+					</TouchableOpacity>
+				</View>
+			);
+		};
 
 		if (index === 0) {
 			// Główny (pierwszy) news – duża karta wyróżniona
-			return (
+			const content = (
 				<TouchableOpacity activeOpacity={0.9} onPress={() => setSelectedNews(item)}>
 					<Card style={styles.featuredCard}>
 						<Image
@@ -259,7 +401,12 @@ export default function NewsScreen() {
 						/>
 						<Card.Content style={styles.featuredContent}>
 							<View style={styles.badgeRow}>
-								<Text style={styles.featuredBadge}>NAJWAŻNIEJSZE</Text>
+								<Text style={[
+									styles.featuredBadge,
+									!item.is_important && { backgroundColor: COLORS.primaryLight, color: COLORS.primary }
+								]}>
+									{item.is_important ? "NAJWAŻNIEJSZE" : "NAJNOWSZE"}
+								</Text>
 							</View>
 							<Title style={styles.featuredTitle}>{item.title}</Title>
 							<Text style={styles.date}>{formatDate(item.created_at)}</Text>
@@ -270,10 +417,26 @@ export default function NewsScreen() {
 					</Card>
 				</TouchableOpacity>
 			);
+
+			if (user && profile?.role === "admin") {
+				return (
+					<View style={{ marginBottom: 16 }}>
+						<Swipeable
+							ref={ref => { swipeableRef = ref; }}
+							renderRightActions={renderRightActions(true)}
+							friction={2}
+							rightThreshold={40}
+						>
+							{content}
+						</Swipeable>
+					</View>
+				);
+			}
+			return <View style={{ marginBottom: 16 }}>{content}</View>;
 		}
 
 		// Kolejne newsy – mniejsze karty w stylu Flashscore (poziomy układ z obrazkiem)
-		return (
+		const content = (
 			<TouchableOpacity activeOpacity={0.9} onPress={() => setSelectedNews(item)}>
 				<Card style={styles.smallCard}>
 					<View style={styles.horizontalRow}>
@@ -295,6 +458,22 @@ export default function NewsScreen() {
 				</Card>
 			</TouchableOpacity>
 		);
+
+		if (user && profile?.role === "admin") {
+			return (
+				<View style={{ marginBottom: 10 }}>
+					<Swipeable
+						ref={ref => { swipeableRef = ref; }}
+						renderRightActions={renderRightActions(false)}
+						friction={2}
+						rightThreshold={40}
+					>
+						{content}
+					</Swipeable>
+				</View>
+			);
+		}
+		return <View style={{ marginBottom: 10 }}>{content}</View>;
 	};
 
 	const renderAnnouncementItem = ({ item }: { item: AnnouncementItem }) => (
@@ -328,30 +507,32 @@ export default function NewsScreen() {
 			style={styles.container}
 			imageStyle={styles.backgroundImageStyle}
 		>
-			{/* Segmented Buttons for tabs navigation */}
-			<View style={styles.tabContainer}>
-				<SegmentedButtons
-					value={activeTab}
-					onValueChange={setActiveTab}
-					buttons={[
-						{
-							value: "news",
-							label: "Pierwszy Zespół",
-							icon: "newspaper",
-							checkedColor: COLORS.white,
-							style: activeTab === "news" ? styles.activeTabButton : styles.inactiveTabButton,
-						},
-						{
-							value: "announcements",
-							label: "Ogłoszenia",
-							icon: "bullhorn",
-							checkedColor: COLORS.white,
-							style: activeTab === "announcements" ? styles.activeTabButton : styles.inactiveTabButton,
-						},
-					]}
-					style={styles.segmentedButtons}
-				/>
-			</View>
+			{/* Segmented Buttons for tabs navigation - widoczne tylko gdy zalogowany */}
+			{user ? (
+				<View style={styles.tabContainer}>
+					<SegmentedButtons
+						value={activeTab}
+						onValueChange={setActiveTab}
+						buttons={[
+							{
+								value: "news",
+								label: "Pierwszy Zespół",
+								icon: "newspaper",
+								checkedColor: COLORS.white,
+								style: activeTab === "news" ? styles.activeTabButton : styles.inactiveTabButton,
+							},
+							{
+								value: "announcements",
+								label: "Ogłoszenia",
+								icon: "bullhorn",
+								checkedColor: COLORS.white,
+								style: activeTab === "announcements" ? styles.activeTabButton : styles.inactiveTabButton,
+							},
+						]}
+						style={styles.segmentedButtons}
+					/>
+				</View>
+			) : null}
 
 			{activeTab === "news" ? (
 				<FlatList
@@ -440,12 +621,18 @@ export default function NewsScreen() {
 				</Dialog>
 			</Portal>
 
-			{/* Modal dodawania aktualności */}
+			{/* Modal dodawania/edycji aktualności */}
 			<Portal>
-				<Dialog visible={isAddNewsVisible} onDismiss={() => setIsAddNewsVisible(false)}>
-					<Dialog.Title style={styles.dialogTitle}>Dodaj nową aktualność</Dialog.Title>
+				<Dialog
+					visible={isAddNewsVisible}
+					onDismiss={handleCancelNewsForm}
+					style={styles.dialogContainer}
+				>
+					<Dialog.Title style={styles.dialogTitle}>
+						{editNewsId !== null ? "Edytuj aktualność" : "Dodaj nową aktualność"}
+					</Dialog.Title>
 					<Dialog.Content style={styles.dialogContent}>
-						<ScrollView style={styles.dialogScrollForm}>
+						<ScrollView style={styles.dialogScrollForm} showsVerticalScrollIndicator={false}>
 							<TextInput
 								label="Tytuł"
 								value={newsTitle}
@@ -462,7 +649,7 @@ export default function NewsScreen() {
 								onChangeText={setNewsContent}
 								mode="outlined"
 								multiline
-								numberOfLines={5}
+								numberOfLines={6}
 								style={styles.formInput}
 								outlineColor={COLORS.border}
 								activeOutlineColor={COLORS.primary}
@@ -472,30 +659,24 @@ export default function NewsScreen() {
 								<View style={styles.imagePreviewContainer}>
 									<Image source={{ uri: imageUri }} style={styles.imagePreview} />
 									<TouchableOpacity style={styles.removeImageButton} onPress={() => setImageUri(null)}>
-										<MaterialIcons name="close" size={18} color={COLORS.white} />
+										<MaterialIcons name="delete" size={16} color={COLORS.white} />
 										<Text style={styles.removeImageText}>Usuń zdjęcie</Text>
 									</TouchableOpacity>
 								</View>
 							) : (
-								<View style={styles.imageButtonsRow}>
-									<Button
-										mode="outlined"
-										icon="camera"
-										onPress={takePhoto}
-										style={[styles.imageButton, { borderColor: COLORS.primary }]}
-										textColor={COLORS.primary}
-									>
-										Aparat
-									</Button>
-									<Button
-										mode="outlined"
-										icon="image"
-										onPress={pickImage}
-										style={[styles.imageButton, { borderColor: COLORS.primary }]}
-										textColor={COLORS.primary}
-									>
-										Galeria
-									</Button>
+								<View style={styles.uploadZone}>
+									<Text style={styles.uploadZoneTitle}>Dodaj zdjęcie do aktualności</Text>
+									<Text style={styles.uploadZoneSubtitle}>Wymiary sugerowane 3:2 (JPG, PNG)</Text>
+									<View style={styles.uploadZoneButtons}>
+										<TouchableOpacity style={styles.uploadZoneBtn} onPress={takePhoto}>
+											<MaterialIcons name="photo-camera" size={20} color={COLORS.primary} />
+											<Text style={styles.uploadZoneBtnText}>Aparat</Text>
+										</TouchableOpacity>
+										<TouchableOpacity style={styles.uploadZoneBtn} onPress={pickImage}>
+											<MaterialIcons name="photo-library" size={20} color={COLORS.primary} />
+											<Text style={styles.uploadZoneBtnText}>Galeria</Text>
+										</TouchableOpacity>
+									</View>
 								</View>
 							)}
 							{uploading && (
@@ -504,29 +685,66 @@ export default function NewsScreen() {
 									<Text style={styles.uploadingText}>Wgrywanie zdjęcia na serwer...</Text>
 								</View>
 							)}
-							<View style={styles.switchRow}>
-								<Text style={styles.switchLabel}>Dotyczy pierwszej drużyny (I Zespół)</Text>
-								<Switch
-									value={newsIsFirstTeam}
-									onValueChange={setNewsIsFirstTeam}
-									color={COLORS.primary}
-								/>
+							<View style={styles.settingsGroup}>
+								<View style={styles.settingRow}>
+									<View style={styles.settingTextContainer}>
+										<Text style={styles.settingLabel}>Główna drużyna (I Zespół)</Text>
+										<Text style={styles.settingDescription}>Wyświetlaj oznaczenie o seniorach</Text>
+									</View>
+									<Switch
+										value={newsIsFirstTeam}
+										onValueChange={setNewsIsFirstTeam}
+										color={COLORS.primary}
+									/>
+								</View>
+								
+								<View style={[styles.settingRow, { borderTopWidth: 1, borderColor: COLORS.border }]}>
+									<View style={styles.settingTextContainer}>
+										<Text style={styles.settingLabel}>Wiadomość najważniejsza</Text>
+										<Text style={styles.settingDescription}>Przypnij ten news na samej górze</Text>
+									</View>
+									<Switch
+										value={newsIsImportant}
+										onValueChange={setNewsIsImportant}
+										color={COLORS.primary}
+									/>
+								</View>
 							</View>
 						</ScrollView>
 					</Dialog.Content>
-					<Dialog.Actions>
-						<Button onPress={() => setIsAddNewsVisible(false)}>Anuluj</Button>
-						<Button mode="contained" onPress={handleAddNews} style={styles.formButton} labelStyle={{ color: COLORS.white }}>Dodaj</Button>
+					<Dialog.Actions style={styles.formActionsRow}>
+						<Button
+							mode="outlined"
+							onPress={handleCancelNewsForm}
+							style={styles.cancelBtn}
+							textColor={COLORS.textLight}
+							disabled={uploading}
+						>
+							Anuluj
+						</Button>
+						<Button
+							mode="contained"
+							onPress={handleAddNews}
+							style={styles.submitBtn}
+							labelStyle={{ fontWeight: "bold", color: COLORS.white }}
+							disabled={uploading}
+						>
+							{uploading ? "Zapisywanie..." : editNewsId !== null ? "Zapisz" : "Opublikuj"}
+						</Button>
 					</Dialog.Actions>
 				</Dialog>
 			</Portal>
 
 			{/* Modal dodawania ogłoszeń */}
 			<Portal>
-				<Dialog visible={isAddAnnouncementVisible} onDismiss={() => setIsAddAnnouncementVisible(false)}>
+				<Dialog
+					visible={isAddAnnouncementVisible}
+					onDismiss={() => setIsAddAnnouncementVisible(false)}
+					style={styles.dialogContainer}
+				>
 					<Dialog.Title style={styles.dialogTitle}>Dodaj nowe ogłoszenie</Dialog.Title>
 					<Dialog.Content style={styles.dialogContent}>
-						<ScrollView style={styles.dialogScrollForm}>
+						<ScrollView style={styles.dialogScrollForm} showsVerticalScrollIndicator={false}>
 							<TextInput
 								label="Tytuł ogłoszenia"
 								value={announcementTitle}
@@ -543,7 +761,7 @@ export default function NewsScreen() {
 								onChangeText={setAnnouncementContent}
 								mode="outlined"
 								multiline
-								numberOfLines={5}
+								numberOfLines={6}
 								style={styles.formInput}
 								outlineColor={COLORS.border}
 								activeOutlineColor={COLORS.primary}
@@ -586,9 +804,23 @@ export default function NewsScreen() {
 							)}
 						</ScrollView>
 					</Dialog.Content>
-					<Dialog.Actions>
-						<Button onPress={() => setIsAddAnnouncementVisible(false)}>Anuluj</Button>
-						<Button mode="contained" onPress={handleAddAnnouncement} style={styles.formButton} labelStyle={{ color: COLORS.white }}>Dodaj</Button>
+					<Dialog.Actions style={styles.formActionsRow}>
+						<Button
+							mode="outlined"
+							onPress={() => setIsAddAnnouncementVisible(false)}
+							style={styles.cancelBtn}
+							textColor={COLORS.textLight}
+						>
+							Anuluj
+						</Button>
+						<Button
+							mode="contained"
+							onPress={handleAddAnnouncement}
+							style={styles.submitBtn}
+							labelStyle={{ fontWeight: "bold", color: COLORS.white }}
+						>
+							Dodaj
+						</Button>
 					</Dialog.Actions>
 				</Dialog>
 			</Portal>
@@ -757,7 +989,6 @@ const styles = StyleSheet.create({
 
 	// Stylizacja dla wyróżnionego (featured) newsa
 	featuredCard: {
-		marginBottom: 16,
 		backgroundColor: COLORS.white,
 		borderRadius: 12,
 		overflow: "hidden",
@@ -800,7 +1031,6 @@ const styles = StyleSheet.create({
 
 	// Stylizacja dla małych newsów w stylu Flashscore
 	smallCard: {
-		marginBottom: 10,
 		backgroundColor: COLORS.white,
 		borderRadius: 12,
 		elevation: 1,
@@ -891,7 +1121,7 @@ const styles = StyleSheet.create({
 		shadowRadius: 4.65,
 	},
 	dialogScrollForm: {
-		maxHeight: 350,
+		maxHeight: Dimensions.get("window").height * 0.58,
 	},
 	formInput: {
 		marginBottom: 12,
@@ -951,26 +1181,84 @@ const styles = StyleSheet.create({
 	},
 
 	// Upload i podgląd zdjęć
-	imagePreviewContainer: {
+	uploadZone: {
+		borderWidth: 1.5,
+		borderColor: COLORS.border,
+		borderStyle: "dashed",
+		borderRadius: 12,
+		padding: 16,
 		alignItems: "center",
-		marginVertical: 10,
+		backgroundColor: COLORS.background,
+		marginBottom: 16,
+		marginTop: 4,
+	},
+	uploadZoneTitle: {
+		fontSize: 13,
+		fontWeight: "bold",
+		color: COLORS.textDark,
+		marginBottom: 2,
+	},
+	uploadZoneSubtitle: {
+		fontSize: 11,
+		color: COLORS.textLight,
+		marginBottom: 12,
+	},
+	uploadZoneButtons: {
+		flexDirection: "row",
+		justifyContent: "space-between",
+		width: "100%",
+	},
+	uploadZoneBtn: {
+		flex: 0.47,
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "center",
+		backgroundColor: COLORS.white,
+		borderWidth: 1,
+		borderColor: COLORS.border,
+		borderRadius: 8,
+		paddingVertical: 10,
+		elevation: 1,
+		shadowColor: "#000",
+		shadowOffset: { width: 0, height: 1 },
+		shadowOpacity: 0.05,
+		shadowRadius: 1,
+	},
+	uploadZoneBtnText: {
+		fontSize: 12,
+		fontWeight: "bold",
+		color: COLORS.primary,
+		marginLeft: 6,
+	},
+	imagePreviewContainer: {
+		width: "100%",
+		height: 160,
+		borderRadius: 12,
+		overflow: "hidden",
+		marginBottom: 16,
+		marginTop: 4,
 		position: "relative",
 	},
 	imagePreview: {
 		width: "100%",
-		height: 150,
-		borderRadius: 8,
-		backgroundColor: COLORS.border,
+		height: "100%",
+		resizeMode: "cover",
 	},
 	removeImageButton: {
 		position: "absolute",
-		bottom: 8,
-		backgroundColor: "rgba(224, 50, 50, 0.9)",
+		top: 10,
+		right: 10,
+		backgroundColor: "rgba(239, 68, 68, 0.9)",
 		flexDirection: "row",
 		alignItems: "center",
 		paddingHorizontal: 12,
 		paddingVertical: 6,
 		borderRadius: 16,
+		elevation: 2,
+		shadowColor: "#000",
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.25,
+		shadowRadius: 3.84,
 	},
 	removeImageText: {
 		color: COLORS.white,
@@ -978,24 +1266,109 @@ const styles = StyleSheet.create({
 		fontWeight: "bold",
 		marginLeft: 4,
 	},
-	imageButtonsRow: {
-		flexDirection: "row",
-		justifyContent: "space-between",
-		marginVertical: 10,
-	},
-	imageButton: {
-		flex: 0.48,
-		borderRadius: 8,
-	},
 	uploadingContainer: {
 		flexDirection: "row",
 		alignItems: "center",
 		justifyContent: "center",
-		marginVertical: 10,
+		marginBottom: 16,
 	},
 	uploadingText: {
 		fontSize: 13,
 		color: COLORS.textDark,
 		marginLeft: 8,
+	},
+
+	// Stylizacja opcji (switches)
+	settingsGroup: {
+		backgroundColor: COLORS.background,
+		borderRadius: 12,
+		borderWidth: 1,
+		borderColor: COLORS.border,
+		marginBottom: 16,
+		overflow: "hidden",
+	},
+	settingRow: {
+		flexDirection: "row",
+		justifyContent: "space-between",
+		alignItems: "center",
+		padding: 12,
+	},
+	settingTextContainer: {
+		flex: 1,
+		paddingRight: 10,
+	},
+	settingLabel: {
+		fontSize: 13,
+		fontWeight: "bold",
+		color: COLORS.textDark,
+	},
+	settingDescription: {
+		fontSize: 11,
+		color: COLORS.textLight,
+		marginTop: 1,
+	},
+
+	// Layouty modalów i przycisków
+	dialogContainer: {
+		backgroundColor: COLORS.white,
+		borderRadius: 16,
+		width: "92%",
+		alignSelf: "center",
+		paddingVertical: 4,
+	},
+	formActionsRow: {
+		flexDirection: "row",
+		justifyContent: "space-between",
+		paddingHorizontal: 24,
+		paddingBottom: 16,
+		paddingTop: 8,
+	},
+	cancelBtn: {
+		flex: 0.47,
+		borderRadius: 8,
+		borderColor: COLORS.border,
+	},
+	submitBtn: {
+		flex: 0.47,
+		borderRadius: 8,
+		backgroundColor: COLORS.primary,
+	},
+
+	// Kontenery gestów swipe do edycji/usuwania
+	swipeActionsContainerFeatured: {
+		flexDirection: "row",
+		width: 140,
+		height: "100%",
+		overflow: "hidden",
+		borderTopRightRadius: 12,
+		borderBottomRightRadius: 12,
+	},
+	swipeActionsContainerSmall: {
+		flexDirection: "row",
+		width: 140,
+		height: "100%",
+		overflow: "hidden",
+		borderTopRightRadius: 12,
+		borderBottomRightRadius: 12,
+	},
+	swipeActionBtn: {
+		flex: 1,
+		justifyContent: "center",
+		alignItems: "center",
+		height: "100%",
+	},
+	editActionBtn: {
+		backgroundColor: COLORS.primary,
+	},
+	deleteActionBtn: {
+		backgroundColor: "#ef4444",
+		borderTopRightRadius: 12,
+		borderBottomRightRadius: 12,
+	},
+	swipeActionText: {
+		color: COLORS.white,
+		fontSize: 11,
+		fontWeight: "bold",
+		marginTop: 4,
 	},
 });
