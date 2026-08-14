@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { View, StyleSheet, FlatList, ActivityIndicator, RefreshControl, Dimensions, ImageBackground, ScrollView, TouchableOpacity, Image } from "react-native";
-import { Card, Title, Paragraph, Text, Button, SegmentedButtons, Portal, Dialog } from "react-native-paper";
+import { Card, Title, Paragraph, Text, Button, SegmentedButtons, Portal, Dialog, FAB, TextInput, Switch } from "react-native-paper";
 import { MaterialIcons } from "@expo/vector-icons";
 import { supabase } from "../../lib/supabase";
 import { COLORS } from "../../css/colors";
 import { useAuth } from "../../contexts/AuthContext";
 import { router } from "expo-router";
 
-import { NewsItem, AnnouncementItem } from "../../types";
+import { NewsItem, AnnouncementItem, Team } from "../../types";
 import { SAMPLE_IMAGES } from "../../constants";
+import * as ImagePicker from "expo-image-picker";
 
 const getNewsImage = (item: NewsItem, index: number) => {
 	if (item.image_url && item.image_url.startsWith("http") && !item.image_url.includes("unsplash.com")) {
@@ -27,6 +28,160 @@ export default function NewsScreen() {
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
 	const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
+
+	// Stan dla formularzy dodawania postów
+	const [isAddNewsVisible, setIsAddNewsVisible] = useState(false);
+	const [isAddAnnouncementVisible, setIsAddAnnouncementVisible] = useState(false);
+	const [newsTitle, setNewsTitle] = useState("");
+	const [newsContent, setNewsContent] = useState("");
+	const [imageUri, setImageUri] = useState<string | null>(null);
+	const [uploading, setUploading] = useState(false);
+	const [newsIsFirstTeam, setNewsIsFirstTeam] = useState(false);
+	const [announcementTitle, setAnnouncementTitle] = useState("");
+	const [announcementContent, setAnnouncementContent] = useState("");
+	const [announcementTeamId, setAnnouncementTeamId] = useState("");
+	const [teams, setTeams] = useState<Team[]>([]);
+
+	useEffect(() => {
+		if (profile?.role === "admin") {
+			const fetchTeams = async () => {
+				const { data } = await supabase.from("teams").select("id, name");
+				if (data) setTeams(data);
+			};
+			fetchTeams();
+		}
+	}, [profile]);
+
+	const pickImage = async () => {
+		const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+		if (permissionResult.granted === false) {
+			alert("Wymagane jest zezwolenie na dostęp do galerii!");
+			return;
+		}
+
+		const result = await ImagePicker.launchImageLibraryAsync({
+			mediaTypes: ImagePicker.MediaTypeOptions.Images,
+			allowsEditing: true,
+			aspect: [3, 2],
+			quality: 0.7,
+		});
+
+		if (!result.canceled) {
+			setImageUri(result.assets[0].uri);
+		}
+	};
+
+	const takePhoto = async () => {
+		const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+		if (permissionResult.granted === false) {
+			alert("Wymagane jest zezwolenie na dostęp do aparatu!");
+			return;
+		}
+
+		const result = await ImagePicker.launchCameraAsync({
+			mediaTypes: ImagePicker.MediaTypeOptions.Images,
+			allowsEditing: true,
+			aspect: [3, 2],
+			quality: 0.7,
+		});
+
+		if (!result.canceled) {
+			setImageUri(result.assets[0].uri);
+		}
+	};
+
+	const uploadImage = async (uri: string): Promise<string> => {
+		const response = await fetch(uri);
+		const blob = await response.blob();
+		const fileExt = uri.split('.').pop() || 'jpg';
+		const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+		const filePath = fileName;
+
+		const { error } = await supabase.storage
+			.from('news-images')
+			.upload(filePath, blob, {
+				contentType: `image/${fileExt === 'png' ? 'png' : 'jpeg'}`,
+				upsert: true
+			});
+
+		if (error) throw error;
+
+		const { data: publicUrlData } = supabase.storage
+			.from('news-images')
+			.getPublicUrl(filePath);
+
+		return publicUrlData.publicUrl;
+	};
+
+	const handleAddNews = async () => {
+		if (!newsTitle.trim() || !newsContent.trim()) {
+			alert("Tytuł i treść są wymagane");
+			return;
+		}
+
+		try {
+			setUploading(true);
+			let uploadedUrl = null;
+
+			if (imageUri) {
+				uploadedUrl = await uploadImage(imageUri);
+			}
+
+			const { error } = await supabase.from("news").insert([
+				{
+					title: newsTitle.trim(),
+					content: newsContent.trim(),
+					image_url: uploadedUrl,
+					is_first_team: newsIsFirstTeam,
+				},
+			]);
+
+			if (error) throw error;
+
+			setNewsTitle("");
+			setNewsContent("");
+			setImageUri(null);
+			setNewsIsFirstTeam(false);
+			setIsAddNewsVisible(false);
+
+			fetchData();
+		} catch (err: any) {
+			console.error("Error adding news:", err);
+			alert("Błąd podczas dodawania aktualności: " + err.message);
+		} finally {
+			setUploading(false);
+		}
+	};
+
+	const handleAddAnnouncement = async () => {
+		if (!announcementTitle.trim() || !announcementContent.trim()) {
+			alert("Tytuł i treść są wymagane");
+			return;
+		}
+
+		try {
+			const { error } = await supabase.from("announcements").insert([
+				{
+					sender_id: user?.id,
+					team_id: announcementTeamId ? parseInt(announcementTeamId) : null,
+					title: announcementTitle.trim(),
+					content: announcementContent.trim(),
+				},
+			]);
+
+			if (error) throw error;
+
+			setAnnouncementTitle("");
+			setAnnouncementContent("");
+			setAnnouncementTeamId("");
+			setIsAddAnnouncementVisible(false);
+
+			fetchData();
+		} catch (err: any) {
+			console.error("Error adding announcement:", err);
+			alert("Błąd podczas dodawania ogłoszenia: " + err.message);
+		}
+	};
 
 	const fetchData = async () => {
 		try {
@@ -284,6 +439,179 @@ export default function NewsScreen() {
 					)}
 				</Dialog>
 			</Portal>
+
+			{/* Modal dodawania aktualności */}
+			<Portal>
+				<Dialog visible={isAddNewsVisible} onDismiss={() => setIsAddNewsVisible(false)}>
+					<Dialog.Title style={styles.dialogTitle}>Dodaj nową aktualność</Dialog.Title>
+					<Dialog.Content style={styles.dialogContent}>
+						<ScrollView style={styles.dialogScrollForm}>
+							<TextInput
+								label="Tytuł"
+								value={newsTitle}
+								onChangeText={setNewsTitle}
+								mode="outlined"
+								style={styles.formInput}
+								outlineColor={COLORS.border}
+								activeOutlineColor={COLORS.primary}
+								textColor={COLORS.textDark}
+							/>
+							<TextInput
+								label="Treść"
+								value={newsContent}
+								onChangeText={setNewsContent}
+								mode="outlined"
+								multiline
+								numberOfLines={5}
+								style={styles.formInput}
+								outlineColor={COLORS.border}
+								activeOutlineColor={COLORS.primary}
+								textColor={COLORS.textDark}
+							/>
+							{imageUri ? (
+								<View style={styles.imagePreviewContainer}>
+									<Image source={{ uri: imageUri }} style={styles.imagePreview} />
+									<TouchableOpacity style={styles.removeImageButton} onPress={() => setImageUri(null)}>
+										<MaterialIcons name="close" size={18} color={COLORS.white} />
+										<Text style={styles.removeImageText}>Usuń zdjęcie</Text>
+									</TouchableOpacity>
+								</View>
+							) : (
+								<View style={styles.imageButtonsRow}>
+									<Button
+										mode="outlined"
+										icon="camera"
+										onPress={takePhoto}
+										style={[styles.imageButton, { borderColor: COLORS.primary }]}
+										textColor={COLORS.primary}
+									>
+										Aparat
+									</Button>
+									<Button
+										mode="outlined"
+										icon="image"
+										onPress={pickImage}
+										style={[styles.imageButton, { borderColor: COLORS.primary }]}
+										textColor={COLORS.primary}
+									>
+										Galeria
+									</Button>
+								</View>
+							)}
+							{uploading && (
+								<View style={styles.uploadingContainer}>
+									<ActivityIndicator size="small" color={COLORS.primary} />
+									<Text style={styles.uploadingText}>Wgrywanie zdjęcia na serwer...</Text>
+								</View>
+							)}
+							<View style={styles.switchRow}>
+								<Text style={styles.switchLabel}>Dotyczy pierwszej drużyny (I Zespół)</Text>
+								<Switch
+									value={newsIsFirstTeam}
+									onValueChange={setNewsIsFirstTeam}
+									color={COLORS.primary}
+								/>
+							</View>
+						</ScrollView>
+					</Dialog.Content>
+					<Dialog.Actions>
+						<Button onPress={() => setIsAddNewsVisible(false)}>Anuluj</Button>
+						<Button mode="contained" onPress={handleAddNews} style={styles.formButton} labelStyle={{ color: COLORS.white }}>Dodaj</Button>
+					</Dialog.Actions>
+				</Dialog>
+			</Portal>
+
+			{/* Modal dodawania ogłoszeń */}
+			<Portal>
+				<Dialog visible={isAddAnnouncementVisible} onDismiss={() => setIsAddAnnouncementVisible(false)}>
+					<Dialog.Title style={styles.dialogTitle}>Dodaj nowe ogłoszenie</Dialog.Title>
+					<Dialog.Content style={styles.dialogContent}>
+						<ScrollView style={styles.dialogScrollForm}>
+							<TextInput
+								label="Tytuł ogłoszenia"
+								value={announcementTitle}
+								onChangeText={setAnnouncementTitle}
+								mode="outlined"
+								style={styles.formInput}
+								outlineColor={COLORS.border}
+								activeOutlineColor={COLORS.primary}
+								textColor={COLORS.textDark}
+							/>
+							<TextInput
+								label="Treść ogłoszenia"
+								value={announcementContent}
+								onChangeText={setAnnouncementContent}
+								mode="outlined"
+								multiline
+								numberOfLines={5}
+								style={styles.formInput}
+								outlineColor={COLORS.border}
+								activeOutlineColor={COLORS.primary}
+								textColor={COLORS.textDark}
+							/>
+							
+							{profile?.role === "admin" && (
+								<View style={styles.pickerContainer}>
+									<Text style={styles.pickerLabel}>Odbiorcy (Zespół):</Text>
+									<ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.teamChipsScroll}>
+										<TouchableOpacity
+											style={[
+												styles.teamChip,
+												!announcementTeamId && styles.teamChipActive
+											]}
+											onPress={() => setAnnouncementTeamId("")}
+										>
+											<Text style={[
+												styles.teamChipText,
+												!announcementTeamId && styles.teamChipTextActive
+											]}>Wszyscy</Text>
+										</TouchableOpacity>
+										{teams.map(t => (
+											<TouchableOpacity
+												key={t.id}
+												style={[
+													styles.teamChip,
+													announcementTeamId === t.id.toString() && styles.teamChipActive
+												]}
+												onPress={() => setAnnouncementTeamId(t.id.toString())}
+											>
+												<Text style={[
+													styles.teamChipText,
+													announcementTeamId === t.id.toString() && styles.teamChipTextActive
+												]}>{t.name}</Text>
+											</TouchableOpacity>
+										))}
+									</ScrollView>
+								</View>
+							)}
+						</ScrollView>
+					</Dialog.Content>
+					<Dialog.Actions>
+						<Button onPress={() => setIsAddAnnouncementVisible(false)}>Anuluj</Button>
+						<Button mode="contained" onPress={handleAddAnnouncement} style={styles.formButton} labelStyle={{ color: COLORS.white }}>Dodaj</Button>
+					</Dialog.Actions>
+				</Dialog>
+			</Portal>
+
+			{/* Floating Action Button (FAB) dla Admina/Trenera */}
+			{user && (profile?.role === "admin" || (profile?.role === "coach" && activeTab === "announcements")) && (
+				<FAB
+					icon="plus"
+					style={styles.fab}
+					color={COLORS.white}
+					onPress={() => {
+						if (activeTab === "news") {
+							setIsAddNewsVisible(true);
+						} else {
+							// Jeśli coach, przypisz automatycznie jego team_id
+							if (profile?.role === "coach") {
+								setAnnouncementTeamId(profile.team_id?.toString() || "");
+							}
+							setIsAddAnnouncementVisible(true);
+						}
+					}}
+				/>
+			)}
 		</ImageBackground>
 	);
 }
@@ -546,5 +874,128 @@ const styles = StyleSheet.create({
 		color: COLORS.textDark,
 		fontSize: 14,
 		lineHeight: 22,
+	},
+
+	// Formularz dodawania postów
+	fab: {
+		position: "absolute",
+		margin: 16,
+		right: 16,
+		bottom: 16,
+		backgroundColor: COLORS.primary,
+		borderRadius: 28,
+		elevation: 6,
+		shadowColor: "#000",
+		shadowOffset: { width: 0, height: 3 },
+		shadowOpacity: 0.27,
+		shadowRadius: 4.65,
+	},
+	dialogScrollForm: {
+		maxHeight: 350,
+	},
+	formInput: {
+		marginBottom: 12,
+		backgroundColor: COLORS.white,
+	},
+	formButton: {
+		backgroundColor: COLORS.primary,
+	},
+	switchRow: {
+		flexDirection: "row",
+		justifyContent: "space-between",
+		alignItems: "center",
+		marginTop: 8,
+		marginBottom: 12,
+		paddingVertical: 4,
+	},
+	switchLabel: {
+		fontSize: 14,
+		color: COLORS.textDark,
+		flex: 1,
+		paddingRight: 10,
+	},
+	pickerContainer: {
+		marginTop: 12,
+		marginBottom: 8,
+	},
+	pickerLabel: {
+		fontSize: 14,
+		fontWeight: "bold",
+		color: COLORS.textDark,
+		marginBottom: 6,
+	},
+	teamChipsScroll: {
+		flexDirection: "row",
+		paddingVertical: 4,
+	},
+	teamChip: {
+		paddingHorizontal: 12,
+		paddingVertical: 6,
+		borderRadius: 16,
+		backgroundColor: COLORS.background,
+		marginRight: 8,
+		borderWidth: 1,
+		borderColor: COLORS.border,
+	},
+	teamChipActive: {
+		backgroundColor: COLORS.primaryLight,
+		borderColor: COLORS.primary,
+	},
+	teamChipText: {
+		fontSize: 12,
+		color: COLORS.textDark,
+	},
+	teamChipTextActive: {
+		color: COLORS.primary,
+		fontWeight: "bold",
+	},
+
+	// Upload i podgląd zdjęć
+	imagePreviewContainer: {
+		alignItems: "center",
+		marginVertical: 10,
+		position: "relative",
+	},
+	imagePreview: {
+		width: "100%",
+		height: 150,
+		borderRadius: 8,
+		backgroundColor: COLORS.border,
+	},
+	removeImageButton: {
+		position: "absolute",
+		bottom: 8,
+		backgroundColor: "rgba(224, 50, 50, 0.9)",
+		flexDirection: "row",
+		alignItems: "center",
+		paddingHorizontal: 12,
+		paddingVertical: 6,
+		borderRadius: 16,
+	},
+	removeImageText: {
+		color: COLORS.white,
+		fontSize: 12,
+		fontWeight: "bold",
+		marginLeft: 4,
+	},
+	imageButtonsRow: {
+		flexDirection: "row",
+		justifyContent: "space-between",
+		marginVertical: 10,
+	},
+	imageButton: {
+		flex: 0.48,
+		borderRadius: 8,
+	},
+	uploadingContainer: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "center",
+		marginVertical: 10,
+	},
+	uploadingText: {
+		fontSize: 13,
+		color: COLORS.textDark,
+		marginLeft: 8,
 	},
 });

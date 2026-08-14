@@ -48,6 +48,9 @@ Ten dokument zawiera historię zmian, przegląd architektury kodu po migracji do
   - Kolejne newsy wyświetlają się w poziomym układzie w stylu **Flashscore** (miniaturka po lewej, tytuł i data po prawej).
   - Kliknięcie w dowolną wiadomość otwiera modalne okno dialogowe z pełną treścią.
   - Dodano sanitację linków obrazków pobieranych z bazy danych (podmiana ucieczki znaku `\u0026` na prawidłowy ampersand `&`), a także bezpieczne przekierowywanie błędnych/wolnych linków testowych z Unsplash na stabilne placeholdery Picsum.
+  - Wdrożono przycisk FAB (Floating Action Button) oraz formularze dialogowe pozwalające administratorom i trenerom na dodawanie nowych aktualności (z opcją wyróżnienia w I zespole) i ogłoszeń (z przypisywaniem do konkretnych zespołów) bezpośrednio z aplikacji.
+  - Zaimplementowano pełne wsparcie dla wyboru zdjęcia aktualności – zamiast wpisywania adresu URL, administrator klika przycisk "Aparat" (uruchomienie aparatu i zrobienie zdjęcia) lub "Galeria" (wybór z pamięci telefonu) przy użyciu biblioteki `expo-image-picker`.
+  - Wybrane zdjęcie jest konwertowane do formatu Blob w locie i przesyłane do publicznego kubełka storage w Supabase (`news-images`), po czym jego publiczny adres URL jest zapisywany w rekordzie newsa.
 * [`app/(tabs)/training.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/training.tsx) obsługuje dwie zakładki: Treningi i Mecze. Trenerzy i Admini mogą bezpośrednio dodawać treningi dla poszczególnych zespołów oraz planować mecze (przeciwnik, data, miejsce, wynik).
 
 ### 5. Grafik i Rezerwacje Orlika
@@ -72,11 +75,11 @@ Ponieważ na nowym komputerze klonowane repozytorium nie ma zapisanego tokenu uw
 2. Skopiuj jego pełną zawartość (SQL).
 3. Przejdź do swojego panelu projektu na [Supabase.com](https://supabase.com).
 4. Kliknij zakładkę **SQL Editor** po lewej stronie, utwórz nowe zapytanie (**New query**), wklej kod SQL i kliknij przycisk **Run** w prawym dolnym rogu.
-5. Następnie zrób to samo dla drugiego pliku: [`supabase/migrations/20260814000100_create_admin.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260814000100_create_admin.sql) w celu wygenerowania konta administratorskiego.
+5. Następnie zrób to samo dla pozostałych plików migracji w kolejności numerycznej: [`supabase/migrations/20260814000100_create_admin.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260814000100_create_admin.sql), [`supabase/migrations/20260814000200_news_rls.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260814000200_news_rls.sql) oraz [`supabase/migrations/20260814000300_storage_bucket.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260814000300_storage_bucket.sql).
 
 > [!WARNING]
 > **Błąd: "Could not find the table 'public.teams' in the schema cache" (PGRST205)**:
-> Jeżeli po uruchomieniu aplikacji napotkasz ten błąd, oznacza to, że nie wgrałeś jeszcze powyższego skryptu migracji SQL na swoją zdalną bazę Supabase. Po uruchomieniu tego zapytania w SQL Editorze, Supabase automatycznie utworzy tabelę `teams` i odświeży pamięć podręczną (schema cache), co natychmiast naprawi błąd.
+> Jeżeli po uruchomieniu aplikacji napotkasz ten błąd, oznacza to, że nie wgrałeś jeszcze skryptu migracji SQL na swoją zdalną bazę Supabase. Po uruchomieniu tego zapytania w SQL Editorze, Supabase automatycznie utworzy tabelę `teams` i odświeży pamięć podręczną (schema cache), co natychmiast naprawi błąd.
 
 ---
 
@@ -94,7 +97,7 @@ npx expo start -c
 | Plik | Status | Opis zmiany |
 | :--- | :--- | :--- |
 | [`app.json`](file:///d:/Nowy%20folder/mlawianka-app/app.json) | Zmodyfikowany | Nowa nazwa "GKS Strzegowo", slug, bundleIdentifier i Android package. |
-| [`package.json`](file:///d:/Nowy%20folder/mlawianka-app/package.json) | Zmodyfikowany | Zmiana nazwy paczki npm na `gks-strzegowo`. |
+| [`package.json`](file:///d:/Nowy%20folder/mlawianka-app/package.json) | Zmodyfikowany | Dodano zależność `expo-image-picker`. |
 | [`App.js`](file:///d:/Nowy%20folder/mlawianka-app/App.js) | **Usunięty** | Usunięcie zbędnego i zduplikowanego pliku wejściowego. |
 | [`css/colors.js`](file:///d:/Nowy%20folder/mlawianka-app/css/colors.js) | **Usunięty** | Zastąpiony przez wersję TypeScript. |
 | [`css/colors.ts`](file:///d:/Nowy%20folder/mlawianka-app/css/colors.ts) | **Nowy** | Kolorystyka klubowa GKS Strzegowo (biało-niebieska). |
@@ -113,7 +116,7 @@ npx expo start -c
 | [`app/(tabs)/_layout.js`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/_layout.js) | **Usunięty** | Zastąpiony przez wersję TypeScript. |
 | [`app/(tabs)/_layout.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/_layout.tsx) | **Nowy** | Pasek dolny z nową zakładką czatu w TS. |
 | [`app/(tabs)/news.js`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/news.js) | **Usunięty** | Zastąpiony przez wersję TypeScript. |
-| [`app/(tabs)/news.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/news.tsx) | **Nowy** | Ulepszone newsy w stylu Flashscore i dialogi ze szczegółami w TS. |
+| [`app/(tabs)/news.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/news.tsx) | **Nowy** | Nowy formularz dodawania postów z wbudowanym aparatem i galerii oraz uploadem. |
 | [`app/(tabs)/training.js`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/training.js) | **Usunięty** | Zastąpiony przez wersję TypeScript. |
 | [`app/(tabs)/training.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/training.tsx) | **Nowy** | Harmonogram treningów i meczów w TS. |
 | [`app/(tabs)/booking.js`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/booking.js) | **Usunięty** | Zastąpiony przez wersję TypeScript. |
@@ -134,3 +137,5 @@ npx expo start -c
 | [`constants/index.ts`](file:///d:/Nowy%20folder/mlawianka-app/constants/index.ts) | **Nowy** | Główny barrel export stałych aplikacji. |
 | [`constants/news.ts`](file:///d:/Nowy%20folder/mlawianka-app/constants/news.ts) | **Nowy** | Stałe statyczne dla aktualności i linków testowych Picsum. |
 | [`supabase/migrations/20260814000100_create_admin.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260814000100_create_admin.sql) | **Nowy** | Migracja SQL tworząca konto głównego admina. |
+| [`supabase/migrations/20260814000200_news_rls.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260814000200_news_rls.sql) | **Nowy** | Reguły zapisu RLS dla tabeli news umożliwiające adminowi dodawanie aktualności. |
+| [`supabase/migrations/20260814000300_storage_bucket.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260814000300_storage_bucket.sql) | **Nowy** | Utworzenie kubełka storage `news-images` i przypisanie polityk wgrania zdjęć. |
