@@ -10,4 +10,5 @@ export interface Profile {
 	age?: number | null;
 	child_age?: number | null;
 	created_at?: string;
+	avatar_url?: string | null;
 }

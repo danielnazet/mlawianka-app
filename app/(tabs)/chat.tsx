@@ -31,6 +31,7 @@ type ChatContact = {
 	last_name: string | null;
 	role: ChatRole;
 	team_name: string | null;
+	avatar_url: string | null;
 };
 
 type ActiveChat = {
@@ -405,12 +406,20 @@ export default function ChatScreen() {
 							disabled={openingChatId !== null}
 						>
 							<Card.Content style={styles.userCardContent}>
-								<Avatar.Text
-									size={48}
-									label={getInitials(contact)}
-									style={styles.avatar}
-									labelStyle={styles.avatarLabel}
-								/>
+								{contact.avatar_url ? (
+									<Avatar.Image
+										size={48}
+										source={{ uri: contact.avatar_url }}
+										style={styles.avatar}
+									/>
+								) : (
+									<Avatar.Text
+										size={48}
+										label={getInitials(contact)}
+										style={styles.avatar}
+										labelStyle={styles.avatarLabel}
+									/>
+								)}
 								<View style={styles.userCardInfo}>
 									<Text style={styles.userName}>{getContactName(contact)}</Text>
 									<Text style={styles.userRole}>

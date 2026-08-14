@@ -8,11 +8,13 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   View,
 } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import {
   Avatar,
@@ -466,12 +468,20 @@ export default function ProfileScreen() {
           end={{ x: 1, y: 1 }}
           style={styles.profileHero}
         >
-          <Avatar.Text
-            size={82}
-            label={getInitials()}
-            style={styles.avatar}
-            labelStyle={styles.avatarLabel}
-          />
+          {profile?.avatar_url ? (
+            <Avatar.Image
+              size={82}
+              source={{ uri: profile.avatar_url }}
+              style={styles.avatar}
+            />
+          ) : (
+            <Avatar.Text
+              size={82}
+              label={getInitials()}
+              style={styles.avatar}
+              labelStyle={styles.avatarLabel}
+            />
+          )}
 
           <Text style={styles.profileName}>
             {getFullName()}
@@ -568,66 +578,74 @@ export default function ProfileScreen() {
         )}
 
         {profile?.role === "admin" && (
-          <Card
-            style={[
-              styles.card,
-              styles.adminCard,
-            ]}
-          >
-            <Card.Content style={styles.cardContent}>
-              <View style={styles.adminHeader}>
-                <Avatar.Icon
-                  size={44}
-                  icon="shield-account-outline"
-                  color={COLORS.white}
-                  style={styles.adminIcon}
-                />
-
-                <View style={styles.adminHeaderText}>
-                  <Text style={styles.adminTitle}>
-                    Zarządzanie klubem
-                  </Text>
-
-                  <Text
-                    style={styles.adminDescription}
-                  >
-                    Członkowie, trenerzy i zespoły
-                  </Text>
-                </View>
+          <View style={styles.adminPanel}>
+            <View style={styles.adminHeader}>
+              <Avatar.Icon
+                size={46}
+                icon="shield-crown"
+                style={styles.adminIcon}
+                color={COLORS.white}
+              />
+              <View style={styles.adminHeaderText}>
+                <Text style={styles.adminHeading}>Panel administratora</Text>
+                <Text style={styles.adminDescription}>
+                  Zarządzaj drużynami i trenerami klubu
+                </Text>
               </View>
-
-              <Button
-                mode="contained"
-                icon="account-group"
-                onPress={() =>
-                  router.push(
-                    "/admin/manage_members",
-                  )
-                }
-                buttonColor={COLORS.primary}
-                textColor={COLORS.white}
-                contentStyle={styles.adminButtonContent}
-                style={styles.adminButton}
+            </View>
+            <View style={styles.adminTiles}>
+              <Pressable
+                onPress={() => router.push("/admin/manage_coaches")}
+                style={({ pressed }) => [
+                  styles.adminTile,
+                  pressed && styles.adminTilePressed,
+                ]}
               >
-                Zarządzaj członkami
-              </Button>
-
-              <Button
-                mode="outlined"
-                icon="shield-home-outline"
-                onPress={() =>
-                  router.push(
-                    "/admin/manage_teams",
-                  )
-                }
-                textColor={COLORS.primary}
-                contentStyle={styles.adminButtonContent}
-                style={styles.adminOutlinedButton}
+                <View style={styles.adminTileIcon}>
+                  <MaterialCommunityIcons
+                    name="account-tie"
+                    size={27}
+                    color={COLORS.primary}
+                  />
+                </View>
+                <Text style={styles.adminTileTitle}>Trenerzy</Text>
+                <Text style={styles.adminTileDescription}>
+                  Dodawaj trenerów i sprawdzaj ich drużyny
+                </Text>
+                <MaterialCommunityIcons
+                  name="chevron-right"
+                  size={22}
+                  color={COLORS.textLight}
+                  style={styles.adminTileArrow}
+                />
+              </Pressable>
+              <Pressable
+                onPress={() => router.push("/admin/manage_teams")}
+                style={({ pressed }) => [
+                  styles.adminTile,
+                  pressed && styles.adminTilePressed,
+                ]}
               >
-                Zarządzaj zespołami
-              </Button>
-            </Card.Content>
-          </Card>
+                <View style={styles.adminTileIcon}>
+                  <MaterialCommunityIcons
+                    name="shield-plus"
+                    size={27}
+                    color={COLORS.primary}
+                  />
+                </View>
+                <Text style={styles.adminTileTitle}>Drużyny</Text>
+                <Text style={styles.adminTileDescription}>
+                  Twórz drużyny i przypisuj trenerów
+                </Text>
+                <MaterialCommunityIcons
+                  name="chevron-right"
+                  size={22}
+                  color={COLORS.textLight}
+                  style={styles.adminTileArrow}
+                />
+              </Pressable>
+            </View>
+          </View>
         )}
 
         <Button
@@ -777,47 +795,84 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.border,
   },
 
-  adminCard: {
-    borderColor: "rgba(29,78,216,0.28)",
-    backgroundColor: COLORS.primaryLight,
+  adminPanel: {
+    backgroundColor: COLORS.white,
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#bfdbfe",
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 2,
   },
-
   adminHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
     marginBottom: 16,
   },
-
   adminIcon: {
     backgroundColor: COLORS.primary,
   },
-
   adminHeaderText: {
     flex: 1,
+    marginLeft: 12,
   },
-
-  adminTitle: {
-    color: COLORS.primaryDark,
+  adminHeading: {
+    color: COLORS.textDark,
+    fontSize: 17,
     fontFamily: FONTS.extraBold,
-    fontSize: 16,
   },
-
   adminDescription: {
-    marginTop: 2,
     color: COLORS.textLight,
+    fontSize: 13,
+    marginTop: 2,
     fontFamily: FONTS.regular,
-    fontSize: 12,
   },
-
-  adminButton: {
+  adminTiles: {
+    gap: 10,
+  },
+  adminTile: {
+    position: "relative",
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 15,
+    padding: 14,
+    paddingRight: 45,
+    minHeight: 105,
+  },
+  adminTilePressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.99 }],
+  },
+  adminTileIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 13,
+    backgroundColor: COLORS.primaryLight,
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 10,
-    borderRadius: 12,
   },
-
-  adminOutlinedButton: {
-    borderRadius: 12,
-    borderColor: COLORS.primary,
+  adminTileTitle: {
+    color: COLORS.textDark,
+    fontSize: 16,
+    fontFamily: FONTS.extraBold,
+  },
+  adminTileDescription: {
+    color: COLORS.textLight,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 3,
+    fontFamily: FONTS.regular,
+  },
+  adminTileArrow: {
+    position: "absolute",
+    right: 12,
+    top: "40%",
   },
 
   adminButtonContent: {
