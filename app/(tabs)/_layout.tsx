@@ -1,150 +1,111 @@
-import React, { useRef, useEffect } from "react";
+import React from "react";
 import { Tabs } from "expo-router";
-import { MaterialIcons } from "@expo/vector-icons";
 import { COLORS } from "../../css/colors";
 import { useAuth } from "../../contexts/AuthContext";
-import { View, StyleSheet, TouchableOpacity, Animated, Image } from "react-native";
+import { View, Image, StyleSheet, Text } from "react-native";
+import { ClubTabBar } from "../../components/ClubTabBar";
+import { LinearGradient } from "expo-linear-gradient";
+import { FONTS } from "../../css/fonts";
 
-const AnimatedTabButton = (props: any) => {
-	const { accessibilityState, children, onPress } = props;
-	const focused = accessibilityState?.selected;
-
-	// Bąbelek startuje ze skali 0.4 i opacity 0, gdy nieaktywny
-	const scaleAnim = useRef(new Animated.Value(focused ? 1 : 0.4)).current;
-	const opacityAnim = useRef(new Animated.Value(focused ? 1 : 0)).current;
-
-	useEffect(() => {
-		if (focused) {
-			Animated.parallel([
-				Animated.spring(scaleAnim, {
-					toValue: 1,
-					friction: 5,
-					tension: 40,
-					useNativeDriver: true,
-				}),
-				Animated.timing(opacityAnim, {
-					toValue: 1,
-					duration: 180,
-					useNativeDriver: true,
-				})
-			]).start();
-		} else {
-			Animated.parallel([
-				Animated.timing(scaleAnim, {
-					toValue: 0.4,
-					duration: 150,
-					useNativeDriver: true,
-				}),
-				Animated.timing(opacityAnim, {
-					toValue: 0,
-					duration: 150,
-					useNativeDriver: true,
-				})
-			]).start();
-		}
-	}, [focused]);
-
+function HeaderBackground() {
 	return (
-		<TouchableOpacity
-			activeOpacity={0.8}
-			onPress={onPress}
-			style={styles.tabButtonWrapper}
-		>
-			<View style={styles.tabButtonContent}>
-				{/* Animowane tło bąbelkowe rosnące od środka na zewnątrz */}
-				<Animated.View
-					style={[
-						styles.tabButtonBg,
-						{
-							transform: [{ scale: scaleAnim }],
-							opacity: opacityAnim,
-						}
-					]}
-				/>
-				{/* Zawartość (ikona + tekst) */}
-				<View style={styles.tabButtonForeground}>
-					{children}
-				</View>
-			</View>
-		</TouchableOpacity>
+		<View style={StyleSheet.absoluteFill}>
+			<LinearGradient
+				colors={[
+					COLORS.primaryDark,
+					COLORS.primary,
+				]}
+				start={{ x: 0, y: 0.5 }}
+				end={{ x: 1, y: 0.5 }}
+				style={StyleSheet.absoluteFill}
+			/>
+
+			{/* Delikatne rozświetlenie na środku */}
+			<LinearGradient
+				pointerEvents="none"
+				colors={[
+					"transparent",
+					"rgba(255,255,255,0.07)",
+					"transparent",
+				]}
+				start={{ x: 0, y: 0.5 }}
+				end={{ x: 1, y: 0.5 }}
+				style={StyleSheet.absoluteFill}
+			/>
+
+			<View style={styles.headerBottomLine} />
+		</View>
 	);
-};
+}
+
+function HeaderTitle() {
+	return (
+		<View style={styles.headerTitleContainer}>
+			<Text style={styles.headerTitle}>
+				GKS Strzegowo
+			</Text>
+			<Text style={styles.headerSubtitle}>
+				APLIKACJA KLUBOWA
+			</Text>
+		</View>
+	);
+}
+
+function HeaderLogo() {
+	return (
+		<View style={styles.logoOuterContainer}>
+			<View style={styles.logoContainer}>
+				<Image
+					source={require("../assets/logo_gks.png")}
+					style={styles.logo}
+				/>
+			</View>
+		</View>
+	);
+}
 
 export default function TabLayout() {
 	const { user, profile } = useAuth();
 
+	// Warunki dostępu
+	const isLoggedIn = Boolean(user);
+	const canManageBooking = isLoggedIn && (profile?.role === "admin" || profile?.role === "coach");
+
 	return (
 		<Tabs
+			tabBar={(props) => <ClubTabBar {...props} />}
 			screenOptions={{
-				tabBarActiveTintColor: COLORS.primary,
-				tabBarInactiveTintColor: COLORS.textLight,
-				tabBarLabelStyle: {
-					fontSize: 10,
-					fontWeight: "700",
-					marginTop: 1,
-				},
-				headerTitle: "GKS Strzegowo",
+				headerShown: true,
+				headerTitle: () => <HeaderTitle />,
 				headerTitleAlign: "center",
-				headerTitleStyle: {
-					fontWeight: "bold",
-					fontSize: 19,
-					letterSpacing: 0.5,
-				},
-				headerLeft: () => (
-					<View style={{
-						width: 40,
-						height: 40,
-						borderRadius: 20,
-						backgroundColor: COLORS.white,
-						justifyContent: "center",
-						alignItems: "center",
-						marginLeft: 16,
-						shadowColor: "#000",
-						shadowOffset: { width: 0, height: 2 },
-						shadowOpacity: 0.15,
-						shadowRadius: 3,
-						elevation: 3,
-					}}>
-						<Image
-							source={require("../assets/logo_gks.png")}
-							style={{ width: 30, height: 30, resizeMode: "contain" }}
-						/>
-					</View>
+				headerLeft: () => <HeaderLogo />,
+				headerRight: () => (
+					<View style={styles.headerRightSpacer} />
 				),
+				headerBackground: () => <HeaderBackground />,
 				headerStyle: {
-					backgroundColor: COLORS.primary,
+					backgroundColor: "transparent",
 				},
 				headerTintColor: COLORS.white,
-				tabBarStyle: {
-					backgroundColor: COLORS.white,
-					borderTopWidth: 0,
-					borderRadius: 24,
-					marginHorizontal: 16,
-					marginBottom: 16,
-					height: 68,
-					// Cień pod tab-barem (iOS style)
-					shadowColor: "#000",
-					shadowOffset: { width: 0, height: 6 },
-					shadowOpacity: 0.08,
-					shadowRadius: 8,
-					elevation: 4,
-					paddingBottom: 0,
-					paddingTop: 0,
+				headerShadowVisible: false,
+				tabBarHideOnKeyboard: true,
+				// Delikatna animacja zawartości ekranu (zgodnie z projektem użytkownika)
+				animation: "fade",
+				transitionSpec: {
+					animation: "timing",
+					config: {
+						duration: 160,
+					},
 				},
-				tabBarButton: (props) => <AnimatedTabButton {...props} />,
+				sceneStyle: {
+					backgroundColor: COLORS.background,
+				},
 			}}
 		>
 			<Tabs.Screen
 				name="news"
 				options={{
-					title: "Wiadomości",
-					tabBarIcon: ({ color }) => (
-						<MaterialIcons
-							name="newspaper"
-							size={26}
-							color={color}
-						/>
-					),
+					title: "Aktualności",
 				}}
 			/>
 
@@ -152,28 +113,14 @@ export default function TabLayout() {
 				name="training"
 				options={{
 					title: "Terminarz",
-					tabBarIcon: ({ color }) => (
-						<MaterialIcons
-							name="sports-soccer"
-							size={26}
-							color={color}
-						/>
-					),
 				}}
 			/>
 
 			<Tabs.Screen
 				name="booking"
 				options={{
-					title: "Orlik",
-					href: (user && profile?.role !== "parent") ? undefined : null, // Ukryj dla gości i rodziców
-					tabBarIcon: ({ color }) => (
-						<MaterialIcons
-							name="event"
-							size={26}
-							color={color}
-						/>
-					),
+					title: "Rezerwacja Orlika",
+					href: canManageBooking ? undefined : null,
 				}}
 			/>
 
@@ -181,14 +128,7 @@ export default function TabLayout() {
 				name="chat"
 				options={{
 					title: "Czat",
-					href: user ? undefined : null, // Ukryj tabę jeśli użytkownik jest niezalogowany
-					tabBarIcon: ({ color }) => (
-						<MaterialIcons
-							name="chat"
-							size={26}
-							color={color}
-						/>
-					),
+					href: isLoggedIn ? undefined : null,
 				}}
 			/>
 
@@ -196,13 +136,6 @@ export default function TabLayout() {
 				name="profile"
 				options={{
 					title: "Profil",
-					tabBarIcon: ({ color }) => (
-						<MaterialIcons
-							name="person"
-							size={26}
-							color={color}
-						/>
-					),
 				}}
 			/>
 		</Tabs>
@@ -210,31 +143,66 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-	tabButtonWrapper: {
-		flex: 1,
+	headerTitleContainer: {
 		alignItems: "center",
 		justifyContent: "center",
+		gap: 1,
 	},
-	tabButtonContent: {
-		width: "88%",
-		height: 52, // Idealna wysokość podświetlenia wewnątrz paska
-		alignItems: "center",
-		justifyContent: "center",
-		position: "relative",
+	headerTitle: {
+		color: COLORS.white,
+		fontFamily: FONTS.extraBold,
+		fontSize: 18,
+		lineHeight: 21,
+		letterSpacing: 0.25,
 	},
-	tabButtonBg: {
+	headerSubtitle: {
+		color: "rgba(255,255,255,0.72)",
+		fontFamily: FONTS.bold,
+		fontSize: 8.5,
+		lineHeight: 11,
+		letterSpacing: 1.25,
+	},
+	headerBottomLine: {
 		position: "absolute",
-		top: 0,
+		right: 0,
 		bottom: 0,
 		left: 0,
-		right: 0,
-		borderRadius: 99,
-		backgroundColor: "#EBF3FF", // Delikatny niebieski bąbelek Revolut
-		borderWidth: 1.5,
-		borderColor: "#D0E3FF", // Lekka niebieska otoczka
+		height: 1,
+		backgroundColor: "rgba(239,246,255,0.28)",
 	},
-	tabButtonForeground: {
+	logoOuterContainer: {
+		width: 50,
+		height: 44,
+		marginLeft: 10,
 		alignItems: "center",
 		justifyContent: "center",
+	},
+	logoContainer: {
+		width: 39,
+		height: 39,
+		borderRadius: 20,
+		backgroundColor: COLORS.white,
+		alignItems: "center",
+		justifyContent: "center",
+		borderWidth: 1.5,
+		borderColor: "rgba(255,255,255,0.65)",
+		shadowColor: "#0F172A",
+		shadowOffset: {
+			width: 0,
+			height: 2,
+		},
+		shadowOpacity: 0.22,
+		shadowRadius: 4,
+		elevation: 4,
+	},
+	logo: {
+		width: 29,
+		height: 29,
+		resizeMode: "contain",
+	},
+	headerRightSpacer: {
+		width: 50,
+		height: 44,
+		marginRight: 10,
 	},
 });

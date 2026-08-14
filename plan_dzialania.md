@@ -1,5 +1,5 @@
 Moje przemyslenia:
-Rejestracja -> zawodnik -> Zespol i grupe przypisuje sytem zalezy jaki weik jest podany.
+Rejestracja -> zawodnik -> Zespol i grupe przypisuje sytem zalezy jaki wiek jest podany.
 Rejestracja -> Rodzic -> Dzieci -> system przypisze im grupy na podstawie wieku. Administraor moze recznie zmienic grupe dziecka oraz zawodnika
 Strona logowania - > brak buttona na powrót do strony z aktualnosciami dlaczego nie ma klawiszy nawigacji na dole?
 Rejestracja brak buttona na powrot oraz nawigacji
