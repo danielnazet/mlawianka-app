@@ -6,28 +6,7 @@ import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
 import { COLORS } from "../../css/colors";
 
-interface Training {
-	id: number;
-	title: string;
-	coach: string;
-	time: string;
-	location: string;
-	team_id: number | null;
-}
-
-interface OrlikBooking {
-	id: number;
-	booked_by: string;
-	booking_date: string;
-	start_time: string;
-	end_time: string;
-	description: string;
-	created_at: string;
-	profile?: {
-		first_name: string;
-		last_name: string;
-	} | null;
-}
+import { Training, OrlikBooking } from "../../types";
 
 export default function BookingScreen() {
 	const { user, profile } = useAuth();

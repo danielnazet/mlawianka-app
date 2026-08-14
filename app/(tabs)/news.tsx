@@ -7,38 +7,13 @@ import { COLORS } from "../../css/colors";
 import { useAuth } from "../../contexts/AuthContext";
 import { router } from "expo-router";
 
-interface NewsItem {
-	id: number;
-	title: string;
-	content: string;
-	created_at: string;
-	is_first_team: boolean;
-	image_url?: string;
-}
-
-interface AnnouncementItem {
-	id: number;
-	title: string;
-	content: string;
-	created_at: string;
-	sender: {
-		first_name: string;
-		last_name: string;
-	} | null;
-	team_id: number | null;
-}
-
-const SAMPLE_IMAGES = [
-	"https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=600", // Stadion
-	"https://images.unsplash.com/photo-1517649763962-0c623066013b?q=80&w=600", // Trening lekkoatletyczny
-	"https://images.unsplash.com/photo-1579952362874-86e40020a3cb?q=80&w=600", // Piłka na murawie
-	"https://images.unsplash.com/photo-1504307651254-35680f356dfd?q=80&w=600", // Zbliżenie na piłkę i korki
-	"https://images.unsplash.com/photo-1526232761682-d26e4f9c6352?q=80&w=600", // Dziecięcy mecz piłki nożnej
-];
+import { NewsItem, AnnouncementItem } from "../../types";
+import { SAMPLE_IMAGES } from "../../constants";
 
 const getNewsImage = (item: NewsItem, index: number) => {
-	if (item.image_url && item.image_url.startsWith("http")) {
-		return item.image_url;
+	if (item.image_url && item.image_url.startsWith("http") && !item.image_url.includes("unsplash.com")) {
+		// Czyści ewentualne dosłowne zapisy '\u0026' w URL powstałe przy wstrzykiwaniu SQL
+		return item.image_url.replace(/\\u0026/g, "&");
 	}
 	const idx = index >= 0 ? index : 0;
 	return SAMPLE_IMAGES[idx % SAMPLE_IMAGES.length];
@@ -122,10 +97,10 @@ export default function NewsScreen() {
 			return (
 				<TouchableOpacity activeOpacity={0.9} onPress={() => setSelectedNews(item)}>
 					<Card style={styles.featuredCard}>
-						<ImageBackground
+						<Image
 							source={{ uri: imageUrl }}
 							style={styles.featuredCover}
-							imageStyle={{ borderTopLeftRadius: 12, borderTopRightRadius: 12 }}
+							resizeMode="cover"
 						/>
 						<Card.Content style={styles.featuredContent}>
 							<View style={styles.badgeRow}>
@@ -289,7 +264,7 @@ export default function NewsScreen() {
 			<Portal>
 				<Dialog visible={!!selectedNews} onDismiss={() => setSelectedNews(null)}>
 					{selectedNews && (
-						<>
+						<View>
 							<Dialog.Title style={styles.dialogTitle}>{selectedNews.title}</Dialog.Title>
 							<Dialog.Content style={styles.dialogContent}>
 								<ScrollView style={styles.dialogScroll}>
@@ -305,7 +280,7 @@ export default function NewsScreen() {
 							<Dialog.Actions>
 								<Button onPress={() => setSelectedNews(null)}>Zamknij</Button>
 							</Dialog.Actions>
-						</>
+						</View>
 					)}
 				</Dialog>
 			</Portal>
@@ -467,7 +442,8 @@ const styles = StyleSheet.create({
 	featuredCover: {
 		width: "100%",
 		height: 180,
-		resizeMode: "cover",
+		borderTopLeftRadius: 12,
+		borderTopRightRadius: 12,
 	},
 	featuredContent: {
 		padding: 16,

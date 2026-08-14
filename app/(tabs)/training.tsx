@@ -6,30 +6,7 @@ import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
 import { COLORS } from "../../css/colors";
 
-interface Team {
-	id: number;
-	name: string;
-}
-
-interface Training {
-	id: number;
-	title: string;
-	description: string;
-	coach: string;
-	time: string;
-	location: string;
-	max_capacity: number;
-	team_id: number | null;
-}
-
-interface Match {
-	id: number;
-	team_id: number;
-	opponent: string;
-	match_date: string;
-	location: string;
-	result: string | null;
-}
+import { Team, Training, Match } from "../../types";
 
 export default function TrainingScreen() {
 	const { user, profile } = useAuth();

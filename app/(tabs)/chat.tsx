@@ -5,27 +5,12 @@ import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
 import { COLORS } from "../../css/colors";
 
-interface Message {
-	id: number;
-	sender_id: string;
-	recipient_id: string | null;
-	channel: string | null;
-	content: string;
-	created_at: string;
-	sender_name?: string; // Dołączane po stronie klienta
-}
-
-interface ChatUser {
-	id: string;
-	first_name: string;
-	last_name: string;
-	role: string;
-}
+import { Message, Profile, ActiveChat } from "../../types";
 
 export default function ChatScreen() {
 	const { user, profile } = useAuth();
-	const [activeChat, setActiveChat] = useState<{ channel?: string; recipient?: ChatUser } | null>(null);
-	const [usersList, setUsersList] = useState<ChatUser[]>([]);
+	const [activeChat, setActiveChat] = useState<ActiveChat | null>(null);
+	const [usersList, setUsersList] = useState<Profile[]>([]);
 	const [messages, setMessages] = useState<Message[]>([]);
 	const [newMessageText, setNewMessageText] = useState("");
 	const [loading, setLoading] = useState(true);

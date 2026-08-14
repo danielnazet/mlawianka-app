@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, ImageBackground } from "react-native";
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, ImageBackground, Image } from "react-native";
 import { TextInput, Button, Title, Text, RadioButton } from "react-native-paper";
 import { router } from "expo-router";
 import { supabase } from "../../lib/supabase";
@@ -158,6 +158,17 @@ export default function RegisterScreen() {
 			>
 				<ScrollView contentContainerStyle={styles.scrollContainer}>
 					<View style={styles.container}>
+						{/* Górna część - logo klubowe */}
+						<View style={styles.header}>
+							<Image
+								source={require("../assets/logo_gks.png")}
+								style={styles.logo}
+								resizeMode="contain"
+							/>
+							<Title style={styles.appTitle}>GKS Strzegowo</Title>
+							<Text style={styles.appSubtitle}>Oficjalna Aplikacja Klubowa</Text>
+						</View>
+
 						<View style={styles.card}>
 							<Title style={styles.cardTitle}>Utwórz konto w GKS</Title>
 							<Text style={styles.cardSubtitle}>Dołącz do społeczności GKS Strzegowo</Text>
@@ -336,6 +347,29 @@ const styles = StyleSheet.create({
 		flex: 1,
 		padding: 20,
 		justifyContent: "center",
+	},
+	header: {
+		alignItems: "center",
+		marginBottom: 20,
+		marginTop: 20,
+	},
+	logo: {
+		width: 100,
+		height: 100,
+	},
+	appTitle: {
+		fontSize: 26,
+		fontWeight: "bold",
+		color: COLORS.primary,
+		marginTop: 10,
+		textAlign: "center",
+	},
+	appSubtitle: {
+		fontSize: 14,
+		color: COLORS.textLight,
+		marginTop: 4,
+		textAlign: "center",
+		marginBottom: 10,
 	},
 	card: {
 		backgroundColor: COLORS.white,
