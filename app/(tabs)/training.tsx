@@ -87,7 +87,7 @@ export default function TrainingScreen() {
 					matchQuery = matchQuery.eq("team_id", userTeamId);
 				} else {
 					trainingQuery = trainingQuery.is("team_id", null);
-					matchQuery = matchQuery.is("team_id", 0); // pusty wynik
+					matchQuery = matchQuery.eq("team_id", -1); // pusty wynik
 				}
 			}
 

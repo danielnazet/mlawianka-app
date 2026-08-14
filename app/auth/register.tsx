@@ -4,6 +4,7 @@ import { TextInput, Button, Title, Text, RadioButton } from "react-native-paper"
 import { router } from "expo-router";
 import { supabase } from "../../lib/supabase";
 import { COLORS } from "../../css/colors";
+import { findTeamIdByAge } from "../../constants";
 
 interface Team {
 	id: number;
@@ -63,25 +64,7 @@ export default function RegisterScreen() {
 		fetchTeams();
 	}, []);
 
-	const findTeamIdByAge = (ageNum: number, teamsList: Team[]) => {
-		if (ageNum < 9) {
-			const t = teamsList.find(x => x.name.includes("U-8"));
-			if (t) return t.id;
-		} else if (ageNum >= 9 && ageNum <= 10) {
-			const t = teamsList.find(x => x.name.includes("U-10"));
-			if (t) return t.id;
-		} else if (ageNum >= 11 && ageNum <= 12) {
-			const t = teamsList.find(x => x.name.includes("U-12"));
-			if (t) return t.id;
-		} else if (ageNum >= 13 && ageNum <= 15) {
-			const t = teamsList.find(x => x.name.includes("U-14"));
-			if (t) return t.id;
-		} else {
-			const t = teamsList.find(x => x.name.includes("Senior") || x.name.includes("Główny"));
-			if (t) return t.id;
-		}
-		return teamsList.length > 0 ? teamsList[0].id : null;
-	};
+
 
 	const handleRegister = async () => {
 		const { firstName, lastName, email, password, childFirstName, childLastName, age, childAge } = formData;

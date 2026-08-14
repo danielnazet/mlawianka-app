@@ -3,6 +3,7 @@ Rejestracja -> zawodnik -> Zespol i grupe przypisuje sytem zalezy jaki weik jest
 Rejestracja -> Rodzic -> Dzieci -> system przypisze im grupy na podstawie wieku. Administraor moze recznie zmienic grupe dziecka oraz zawodnika
 Strona logowania - > brak buttona na powrót do strony z aktualnosciami dlaczego nie ma klawiszy nawigacji na dole?
 Rejestracja brak buttona na powrot oraz nawigacji
+dla gosci terminarz tab rowniez jest zbedny zamiast tego moze trzeba zrobic jakies api zeby sciagal tabele liga pierwszego zespolu?
 
 
 # Plan Działania (Roadmap) – Aplikacja Mlawianka

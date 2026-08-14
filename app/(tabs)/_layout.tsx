@@ -3,7 +3,7 @@ import { Tabs } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import { COLORS } from "../../css/colors";
 import { useAuth } from "../../contexts/AuthContext";
-import { View, StyleSheet, TouchableOpacity, Animated } from "react-native";
+import { View, StyleSheet, TouchableOpacity, Animated, Image } from "react-native";
 
 const AnimatedTabButton = (props: any) => {
 	const { accessibilityState, children, onPress } = props;
@@ -71,7 +71,7 @@ const AnimatedTabButton = (props: any) => {
 };
 
 export default function TabLayout() {
-	const { user } = useAuth();
+	const { user, profile } = useAuth();
 
 	return (
 		<Tabs
@@ -83,6 +83,34 @@ export default function TabLayout() {
 					fontWeight: "700",
 					marginTop: 1,
 				},
+				headerTitle: "GKS Strzegowo",
+				headerTitleAlign: "center",
+				headerTitleStyle: {
+					fontWeight: "bold",
+					fontSize: 19,
+					letterSpacing: 0.5,
+				},
+				headerLeft: () => (
+					<View style={{
+						width: 40,
+						height: 40,
+						borderRadius: 20,
+						backgroundColor: COLORS.white,
+						justifyContent: "center",
+						alignItems: "center",
+						marginLeft: 16,
+						shadowColor: "#000",
+						shadowOffset: { width: 0, height: 2 },
+						shadowOpacity: 0.15,
+						shadowRadius: 3,
+						elevation: 3,
+					}}>
+						<Image
+							source={require("../assets/logo_gks.png")}
+							style={{ width: 30, height: 30, resizeMode: "contain" }}
+						/>
+					</View>
+				),
 				headerStyle: {
 					backgroundColor: COLORS.primary,
 				},
@@ -138,6 +166,7 @@ export default function TabLayout() {
 				name="booking"
 				options={{
 					title: "Orlik",
+					href: (user && profile?.role !== "parent") ? undefined : null, // Ukryj dla gości i rodziców
 					tabBarIcon: ({ color }) => (
 						<MaterialIcons
 							name="event"
