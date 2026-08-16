@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { View, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, ImageBackground, TouchableOpacity, Alert } from "react-native";
-import { Card, Title, Button, Text, Paragraph, Portal, Dialog, TextInput, HelperText } from "react-native-paper";
+import { Card, Title, Button, Text, Paragraph, Portal, Dialog, TextInput, Avatar, SegmentedButtons } from "react-native-paper";
 import { router } from "expo-router";
-import { MaterialIcons } from "@expo/vector-icons";
+import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
 import Swipeable from "react-native-gesture-handler/Swipeable";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
@@ -262,6 +262,11 @@ export default function BookingScreen() {
 		return timeStr.substring(0, 5);
 	};
 
+	const getTeamName = (teamId: number | null) => {
+		if (!teamId) return "Wszystkie grupy";
+		return `Grupa #${teamId}`;
+	};
+
 	if (loading) {
 		return (
 			<View style={styles.loadingContainer}>
@@ -298,22 +303,26 @@ export default function BookingScreen() {
 			) : (
 				<>
 					<View style={styles.tabContainer}>
-						<Button
-							mode={activeTab === "trainings" ? "contained" : "outlined"}
-							onPress={() => setActiveTab("trainings")}
-							style={styles.tabButton}
-							textColor={activeTab === "trainings" ? COLORS.white : COLORS.primary}
-						>
-							Zapisy na treningi
-						</Button>
-						<Button
-							mode={activeTab === "orlik" ? "contained" : "outlined"}
-							onPress={() => setActiveTab("orlik")}
-							style={styles.tabButton}
-							textColor={activeTab === "orlik" ? COLORS.white : COLORS.primary}
-						>
-							Rezerwacja Orlika
-						</Button>
+						<SegmentedButtons
+							value={activeTab}
+							onValueChange={setActiveTab}
+							buttons={[
+								{
+									value: "trainings",
+									label: "Zapisy na treningi",
+									icon: "soccer",
+									checkedColor: COLORS.white,
+									style: activeTab === "trainings" ? styles.activeTabButton : styles.inactiveTabButton,
+								},
+								{
+									value: "orlik",
+									label: "Grafik Orlika",
+									icon: "calendar-clock",
+									checkedColor: COLORS.white,
+									style: activeTab === "orlik" ? styles.activeTabButton : styles.inactiveTabButton,
+								},
+							]}
+						/>
 					</View>
 
 					<ScrollView
@@ -328,7 +337,6 @@ export default function BookingScreen() {
 					>
 						{activeTab === "trainings" ? (
 							<View>
-								<Title style={styles.mainTitle}>Zapisy na treningi</Title>
 								{trainings.length === 0 ? (
 									<View style={styles.emptyContainer}>
 										<Text style={styles.emptyText}>Brak wolnych terminów treningowych dla Twojego zespołu.</Text>
@@ -340,19 +348,54 @@ export default function BookingScreen() {
 
 										return (
 											<Card key={training.id} style={styles.card}>
-												<Card.Content>
-													<Title style={styles.cardTitle}>{training.title}</Title>
-													<Text style={styles.infoText}>{`Miejsce: ${training.location}`}</Text>
-													<Text style={styles.infoText}>{`Termin: ${training.time}`}</Text>
-													<Text style={styles.infoText}>{`Trener: ${training.coach}`}</Text>
+												<Card.Content style={styles.cardContent}>
+													<View style={styles.headerRow}>
+														<Avatar.Icon
+															size={40}
+															icon="soccer"
+															style={styles.avatarIcon}
+															color={COLORS.white}
+														/>
+														<View style={styles.headerTextContainer}>
+															<Title style={styles.cardTitle}>{training.title}</Title>
+															<Text style={styles.teamBadge}>{getTeamName(training.team_id)}</Text>
+														</View>
+													</View>
+
+													<View style={styles.divider} />
+
+													<View style={styles.infoRow}>
+														<MaterialCommunityIcons name="account-tie" size={18} color={COLORS.primary} />
+														<Text style={styles.infoLabel}>Trener:</Text>
+														<Text style={styles.infoValue}>{training.coach}</Text>
+													</View>
+
+													<View style={styles.infoRow}>
+														<MaterialCommunityIcons name="clock-outline" size={18} color={COLORS.primary} />
+														<Text style={styles.infoLabel}>Termin:</Text>
+														<Text style={styles.infoValue}>{training.time}</Text>
+													</View>
+
+													<View style={styles.infoRow}>
+														<MaterialCommunityIcons name="map-marker-outline" size={18} color={COLORS.primary} />
+														<Text style={styles.infoLabel}>Miejsce:</Text>
+														<Text style={styles.infoValue}>{training.location}</Text>
+													</View>
+
+													<View style={styles.infoRow}>
+														<MaterialCommunityIcons name="account-multiple-outline" size={18} color={COLORS.primary} />
+														<Text style={styles.infoLabel}>Limit miejsc:</Text>
+														<Text style={styles.infoValue}>{training.max_capacity} osób</Text>
+													</View>
 
 													<Button
-														mode={booked ? "outlined" : "contained"}
+														mode="contained"
 														onPress={() => handleBookingToggle(training.id)}
 														style={[styles.button, booked ? styles.buttonBooked : styles.buttonUnbooked]}
-														textColor={booked ? COLORS.error : COLORS.white}
+														labelStyle={styles.buttonLabel}
 														loading={isActionPending}
 														disabled={isActionPending}
+														icon={booked ? "check-circle-outline" : "plus-circle-outline"}
 													>
 														{booked ? "Odwołaj rezerwację" : "Zarezerwuj miejsce"}
 													</Button>
@@ -365,7 +408,7 @@ export default function BookingScreen() {
 						) : (
 							<View>
 								<View style={styles.orlikHeader}>
-									<Title style={styles.mainTitle}>Grafik Orlika</Title>
+									<Title style={styles.sectionTitle}>Rezerwacje boiska</Title>
 									{isCoachOrAdmin && (
 										<Button
 											mode="contained"
@@ -415,19 +458,39 @@ export default function BookingScreen() {
 
 										const cardContent = (
 											<Card style={[styles.card, styles.orlikCard]}>
-												<Card.Content>
-													<View style={styles.cardHeader}>
-														<Title style={styles.orlikTimeText}>
-															{formatOrlikTime(ob.start_time)} - {formatOrlikTime(ob.end_time)}
-														</Title>
-														<Text style={styles.orlikDateBadge}>{formatOrlikDate(ob.booking_date)}</Text>
+												<Card.Content style={styles.cardContent}>
+													<View style={styles.headerRow}>
+														<Avatar.Icon
+															size={40}
+															icon="calendar-clock"
+															style={styles.orlikAvatarIcon}
+															color={COLORS.white}
+														/>
+														<View style={styles.headerTextContainer}>
+															<Title style={styles.orlikTimeText}>
+																{formatOrlikTime(ob.start_time)} - {formatOrlikTime(ob.end_time)}
+															</Title>
+															<Text style={styles.orlikDateBadge}>{formatOrlikDate(ob.booking_date)}</Text>
+														</View>
 													</View>
+
+													<View style={styles.divider} />
+
 													{ob.description ? (
-														<Paragraph style={styles.orlikDesc}>{ob.description}</Paragraph>
+														<View style={styles.infoRow}>
+															<MaterialCommunityIcons name="text-box-outline" size={18} color={COLORS.primary} />
+															<Text style={styles.infoLabel}>Cel:</Text>
+															<Text style={styles.infoValue}>{ob.description}</Text>
+														</View>
 													) : null}
-													<Text style={styles.orlikBookedBy}>
-														Rezerwujący: {ob.profile ? `${ob.profile.first_name} ${ob.profile.last_name}` : "Trener"}
-													</Text>
+
+													<View style={styles.infoRow}>
+														<MaterialCommunityIcons name="account-circle-outline" size={18} color={COLORS.primary} />
+														<Text style={styles.infoLabel}>Rezerwujący:</Text>
+														<Text style={styles.infoValue}>
+															{ob.profile ? `${ob.profile.first_name} ${ob.profile.last_name}` : "Trener"}
+														</Text>
+													</View>
 												</Card.Content>
 											</Card>
 										);
@@ -460,52 +523,59 @@ export default function BookingScreen() {
 			<Portal>
 				<Dialog visible={dialogVisible} onDismiss={() => !bookingLoading && setDialogVisible(false)} style={styles.dialog}>
 					<Dialog.Title style={styles.dialogTitle}>
-						{editOrlikBookingId !== null ? "Edytuj rezerwację Orlika" : "Rezerwacja boiska Orlik"}
+						<MaterialCommunityIcons name="calendar-clock" size={24} color={COLORS.primary} style={{ marginRight: 8 }} />
+						{editOrlikBookingId !== null ? "Edytuj rezerwację" : "Rezerwacja boiska"}
 					</Dialog.Title>
-					<Dialog.Content>
-						<TextInput
-							label="Data rezerwacji (np. 2026-08-20)"
-							value={bookingDate}
-							onChangeText={setBookingDate}
-							mode="outlined"
-							style={styles.formInput}
-							activeOutlineColor={COLORS.primary}
-							placeholder="YYYY-MM-DD"
-						/>
-						<TextInput
-							label="Godzina rozpoczęcia (np. 17:00)"
-							value={startTime}
-							onChangeText={setStartTime}
-							mode="outlined"
-							style={styles.formInput}
-							activeOutlineColor={COLORS.primary}
-							placeholder="HH:MM"
-						/>
-						<TextInput
-							label="Godzina zakończenia (np. 18:30)"
-							value={endTime}
-							onChangeText={setEndTime}
-							mode="outlined"
-							style={styles.formInput}
-							activeOutlineColor={COLORS.primary}
-							placeholder="HH:MM"
-						/>
-						<TextInput
-							label="Cel / Opis rezerwacji"
-							value={bookingDesc}
-							onChangeText={setBookingDesc}
-							mode="outlined"
-							style={styles.formInput}
-							activeOutlineColor={COLORS.primary}
-						/>
+					<Dialog.Content style={styles.dialogContent}>
+						<ScrollView style={styles.dialogScroll} showsVerticalScrollIndicator={false}>
+							<TextInput
+								label="Data rezerwacji"
+								value={bookingDate}
+								onChangeText={setBookingDate}
+								mode="outlined"
+								style={styles.formInput}
+								activeOutlineColor={COLORS.primary}
+								placeholder="YYYY-MM-DD"
+								left={<TextInput.Icon icon="calendar" />}
+							/>
+							<TextInput
+								label="Godzina rozpoczęcia"
+								value={startTime}
+								onChangeText={setStartTime}
+								mode="outlined"
+								style={styles.formInput}
+								activeOutlineColor={COLORS.primary}
+								placeholder="HH:MM"
+								left={<TextInput.Icon icon="clock-start" />}
+							/>
+							<TextInput
+								label="Godzina zakończenia"
+								value={endTime}
+								onChangeText={setEndTime}
+								mode="outlined"
+								style={styles.formInput}
+								activeOutlineColor={COLORS.primary}
+								placeholder="HH:MM"
+								left={<TextInput.Icon icon="clock-end" />}
+							/>
+							<TextInput
+								label="Cel / Opis rezerwacji"
+								value={bookingDesc}
+								onChangeText={setBookingDesc}
+								mode="outlined"
+								style={styles.formInput}
+								activeOutlineColor={COLORS.primary}
+								left={<TextInput.Icon icon="text" />}
+							/>
 
-						{bookingError ? <Text style={styles.formError}>{bookingError}</Text> : null}
+							{bookingError ? <Text style={styles.formError}>{bookingError}</Text> : null}
+						</ScrollView>
 					</Dialog.Content>
-					<Dialog.Actions>
+					<Dialog.Actions style={styles.dialogActions}>
 						<Button onPress={() => setDialogVisible(false)} disabled={bookingLoading} labelStyle={styles.dialogBtnLabel}>
 							Anuluj
 						</Button>
-						<Button onPress={handleAddOrlikBooking} loading={bookingLoading} disabled={bookingLoading} labelStyle={styles.dialogBtnLabel}>
+						<Button onPress={handleAddOrlikBooking} loading={bookingLoading} disabled={bookingLoading} labelStyle={styles.dialogBtnLabel} mode="contained" style={styles.dialogSaveBtn}>
 							Zapisz
 						</Button>
 					</Dialog.Actions>
@@ -521,11 +591,8 @@ const styles = StyleSheet.create({
 		backgroundColor: COLORS.background,
 	},
 	backgroundImageStyle: {
-		opacity: 0.08,
-		resizeMode: "cover",
-		width: "100%",
-		height: "100%",
-		position: "absolute",
+		opacity: 0.045,
+		resizeMode: "contain",
 	},
 	loadingContainer: {
 		flex: 1,
@@ -534,30 +601,22 @@ const styles = StyleSheet.create({
 		backgroundColor: COLORS.background,
 	},
 	tabContainer: {
-		flexDirection: "row",
-		justifyContent: "space-between",
 		padding: 16,
 	},
-	tabButton: {
-		flex: 1,
-		marginHorizontal: 4,
-		borderRadius: 8,
+	activeTabButton: {
+		backgroundColor: COLORS.primary,
+	},
+	inactiveTabButton: {
+		backgroundColor: COLORS.white,
 	},
 	scrollContainer: {
 		paddingHorizontal: 16,
 		paddingBottom: 24,
 	},
-	mainTitle: {
-		textAlign: "center",
-		marginBottom: 20,
-		color: COLORS.primary,
-		fontSize: 22,
-		fontFamily: FONTS.bold,
-	},
 	card: {
 		marginBottom: 16,
 		backgroundColor: COLORS.white,
-		borderRadius: 12,
+		borderRadius: 16,
 		shadowColor: "#000",
 		shadowOffset: { width: 0, height: 2 },
 		shadowOpacity: 0.05,
@@ -565,48 +624,99 @@ const styles = StyleSheet.create({
 		elevation: 2,
 		overflow: "hidden",
 	},
+	cardContent: {
+		padding: 16,
+	},
 	orlikCard: {
 		borderLeftWidth: 4,
-		borderLeftColor: COLORS.primary,
+		borderLeftColor: COLORS.success,
 	},
-	cardHeader: {
+	headerRow: {
 		flexDirection: "row",
-		justifyContent: "space-between",
 		alignItems: "center",
-		marginBottom: 8,
+	},
+	avatarIcon: {
+		backgroundColor: COLORS.primary,
+	},
+	orlikAvatarIcon: {
+		backgroundColor: COLORS.success,
+	},
+	headerTextContainer: {
+		marginLeft: 12,
+		flex: 1,
+		justifyContent: "center",
 	},
 	cardTitle: {
 		color: COLORS.textDark,
-		fontSize: 18,
+		fontSize: 16,
 		fontFamily: FONTS.bold,
-		marginBottom: 8,
+		marginVertical: 0,
+		paddingVertical: 0,
 	},
-	infoText: {
+	teamBadge: {
+		alignSelf: "flex-start",
+		fontSize: 10,
+		fontFamily: FONTS.bold,
+		color: COLORS.primary,
+		backgroundColor: COLORS.primaryLight,
+		paddingHorizontal: 8,
+		paddingVertical: 2,
+		borderRadius: 4,
+		marginTop: 4,
+	},
+	divider: {
+		height: 1,
+		backgroundColor: "#f1f5f9",
+		marginVertical: 12,
+	},
+	infoRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		marginVertical: 4,
+	},
+	infoLabel: {
+		fontSize: 13,
+		fontFamily: FONTS.bold,
 		color: COLORS.textLight,
-		fontSize: 14,
-		marginVertical: 2,
-		fontFamily: FONTS.regular,
+		marginLeft: 8,
+		marginRight: 4,
+	},
+	infoValue: {
+		fontSize: 13,
+		fontFamily: FONTS.medium,
+		color: COLORS.textDark,
+		flex: 1,
 	},
 	button: {
 		marginTop: 16,
-		borderRadius: 8,
+		borderRadius: 24,
 	},
 	buttonUnbooked: {
 		backgroundColor: COLORS.primary,
 	},
 	buttonBooked: {
-		borderColor: COLORS.error,
-		borderWidth: 1,
+		backgroundColor: "#ef4444",
+	},
+	buttonLabel: {
+		fontFamily: FONTS.bold,
+		color: COLORS.white,
+		fontSize: 13,
 	},
 	orlikHeader: {
 		flexDirection: "row",
 		justifyContent: "space-between",
 		alignItems: "center",
-		marginBottom: 12,
+		marginBottom: 16,
+		marginTop: 8,
+	},
+	sectionTitle: {
+		color: COLORS.primary,
+		fontSize: 20,
+		fontFamily: FONTS.bold,
 	},
 	orlikAddBtn: {
 		backgroundColor: COLORS.primary,
-		borderRadius: 8,
+		borderRadius: 24,
 	},
 	orlikAddBtnLabel: {
 		color: COLORS.white,
@@ -616,26 +726,18 @@ const styles = StyleSheet.create({
 		fontSize: 18,
 		fontFamily: FONTS.bold,
 		color: COLORS.textDark,
+		marginVertical: 0,
 	},
 	orlikDateBadge: {
-		fontSize: 11,
-		color: COLORS.primary,
-		backgroundColor: COLORS.primaryLight,
+		fontSize: 10,
+		color: COLORS.success,
+		backgroundColor: "#e6fbf3",
 		paddingHorizontal: 8,
 		paddingVertical: 2,
 		borderRadius: 4,
-		fontFamily: FONTS.semiBold,
-	},
-	orlikDesc: {
-		color: COLORS.textDark,
-		fontSize: 14,
-		marginBottom: 6,
-		fontFamily: FONTS.regular,
-	},
-	orlikBookedBy: {
-		color: COLORS.textLight,
-		fontSize: 12,
-		fontFamily: FONTS.regular,
+		fontFamily: FONTS.bold,
+		alignSelf: "flex-start",
+		marginTop: 4,
 	},
 	emptyContainer: {
 		padding: 32,
@@ -696,24 +798,42 @@ const styles = StyleSheet.create({
 		fontFamily: FONTS.bold,
 	},
 	dialog: {
-		borderRadius: 22,
+		borderRadius: 24,
 		backgroundColor: COLORS.white,
 	},
 	dialogTitle: {
 		fontFamily: FONTS.extraBold,
 		color: COLORS.primary,
 		fontSize: 20,
+		flexDirection: "row",
+		alignItems: "center",
+	},
+	dialogScroll: {
+		maxHeight: 300,
+	},
+	dialogContent: {
+		paddingHorizontal: 24,
+		paddingTop: 8,
+	},
+	dialogActions: {
+		paddingHorizontal: 24,
+		paddingBottom: 20,
 	},
 	dialogBtnLabel: {
 		fontFamily: FONTS.bold,
+	},
+	dialogSaveBtn: {
+		backgroundColor: COLORS.primary,
+		borderRadius: 8,
+		marginLeft: 8,
 	},
 	swipeActionsContainer: {
 		flexDirection: "row",
 		width: 140,
 		height: "100%",
 		overflow: "hidden",
-		borderTopRightRadius: 12,
-		borderBottomRightRadius: 12,
+		borderTopRightRadius: 16,
+		borderBottomRightRadius: 16,
 	},
 	swipeActionBtn: {
 		flex: 1,
@@ -726,8 +846,8 @@ const styles = StyleSheet.create({
 	},
 	deleteActionBtn: {
 		backgroundColor: "#ef4444",
-		borderTopRightRadius: 12,
-		borderBottomRightRadius: 12,
+		borderTopRightRadius: 16,
+		borderBottomRightRadius: 16,
 	},
 	swipeActionText: {
 		color: COLORS.white,

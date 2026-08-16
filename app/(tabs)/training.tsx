@@ -845,11 +845,8 @@ const styles = StyleSheet.create({
 		backgroundColor: COLORS.background,
 	},
 	backgroundImageStyle: {
-		opacity: 0.08,
-		resizeMode: "cover",
-		width: "100%",
-		height: "100%",
-		position: "absolute",
+		opacity: 0.045,
+		resizeMode: "contain",
 	},
 	loadingContainer: {
 		flex: 1,

@@ -5,6 +5,7 @@ import { Card, Title, Paragraph, Text, Button, SegmentedButtons, Portal, Dialog,
 import { MaterialIcons } from "@expo/vector-icons";
 import { supabase } from "../../lib/supabase";
 import { COLORS } from "../../css/colors";
+import { FONTS } from "../../css/fonts";
 import { useAuth } from "../../contexts/AuthContext";
 import { router, useNavigation } from "expo-router";
 
@@ -664,12 +665,18 @@ export default function NewsScreen() {
 
 			{/* Modal szczegółów aktualności */}
 			<Portal>
-				<Dialog visible={!!selectedNews} onDismiss={() => setSelectedNews(null)}>
+				<Dialog
+					visible={!!selectedNews}
+					onDismiss={() => setSelectedNews(null)}
+					style={styles.dialogContainer}
+				>
 					{selectedNews && (
 						<View>
-							<Dialog.Title style={styles.dialogTitle}>{selectedNews.title}</Dialog.Title>
+							<Dialog.Title style={styles.dialogTitle}>
+								{selectedNews.title}
+							</Dialog.Title>
 							<Dialog.Content style={styles.dialogContent}>
-								<ScrollView style={styles.dialogScroll}>
+								<ScrollView style={styles.dialogScroll} showsVerticalScrollIndicator={false}>
 									<ImageBackground
 										source={{ uri: getNewsImage(selectedNews, news.findIndex(n => n.id === selectedNews.id)) }}
 										style={styles.dialogCover}
@@ -679,8 +686,14 @@ export default function NewsScreen() {
 									<Paragraph style={styles.dialogText}>{selectedNews.content}</Paragraph>
 								</ScrollView>
 							</Dialog.Content>
-							<Dialog.Actions>
-								<Button onPress={() => setSelectedNews(null)}>Zamknij</Button>
+							<Dialog.Actions style={{ paddingHorizontal: 24, paddingBottom: 16 }}>
+								<Button
+									onPress={() => setSelectedNews(null)}
+									labelStyle={{ fontFamily: FONTS.bold }}
+									textColor={COLORS.primary}
+								>
+									Zamknij
+								</Button>
 							</Dialog.Actions>
 						</View>
 					)}
@@ -708,6 +721,7 @@ export default function NewsScreen() {
 								outlineColor={COLORS.border}
 								activeOutlineColor={COLORS.primary}
 								textColor={COLORS.textDark}
+								left={<TextInput.Icon icon="format-title" color={COLORS.textLight} />}
 							/>
 							<TextInput
 								label="Treść"
@@ -720,6 +734,7 @@ export default function NewsScreen() {
 								outlineColor={COLORS.border}
 								activeOutlineColor={COLORS.primary}
 								textColor={COLORS.textDark}
+								left={<TextInput.Icon icon="text-subject" color={COLORS.textLight} />}
 							/>
 							{imageUri ? (
 								<View style={styles.imagePreviewContainer}>
@@ -785,6 +800,7 @@ export default function NewsScreen() {
 							style={styles.cancelBtn}
 							textColor={COLORS.textLight}
 							disabled={uploading}
+							labelStyle={{ fontFamily: FONTS.bold }}
 						>
 							Anuluj
 						</Button>
@@ -792,7 +808,7 @@ export default function NewsScreen() {
 							mode="contained"
 							onPress={handleAddNews}
 							style={styles.submitBtn}
-							labelStyle={{ fontWeight: "bold", color: COLORS.white }}
+							labelStyle={{ fontFamily: FONTS.bold, color: COLORS.white }}
 							disabled={uploading}
 						>
 							{uploading ? "Zapisywanie..." : editNewsId !== null ? "Zapisz" : "Opublikuj"}
@@ -820,6 +836,7 @@ export default function NewsScreen() {
 								outlineColor={COLORS.border}
 								activeOutlineColor={COLORS.primary}
 								textColor={COLORS.textDark}
+								left={<TextInput.Icon icon="format-title" color={COLORS.textLight} />}
 							/>
 							<TextInput
 								label="Treść ogłoszenia"
@@ -832,6 +849,7 @@ export default function NewsScreen() {
 								outlineColor={COLORS.border}
 								activeOutlineColor={COLORS.primary}
 								textColor={COLORS.textDark}
+								left={<TextInput.Icon icon="text-subject" color={COLORS.textLight} />}
 							/>
 							
 							{profile?.role === "admin" && (
@@ -876,6 +894,7 @@ export default function NewsScreen() {
 							onPress={() => setIsAddAnnouncementVisible(false)}
 							style={styles.cancelBtn}
 							textColor={COLORS.textLight}
+							labelStyle={{ fontFamily: FONTS.bold }}
 						>
 							Anuluj
 						</Button>
@@ -883,7 +902,7 @@ export default function NewsScreen() {
 							mode="contained"
 							onPress={handleAddAnnouncement}
 							style={styles.submitBtn}
-							labelStyle={{ fontWeight: "bold", color: COLORS.white }}
+							labelStyle={{ fontFamily: FONTS.bold, color: COLORS.white }}
 						>
 							Dodaj
 						</Button>

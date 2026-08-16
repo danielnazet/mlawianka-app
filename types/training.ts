@@ -10,4 +10,5 @@ export interface Training {
 		name: string;
 	} | null;
 	created_at?: string;
+	max_capacity?: number | null;
 }
