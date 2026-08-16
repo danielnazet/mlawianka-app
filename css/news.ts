@@ -1,5 +1,6 @@
 import { StyleSheet, Dimensions } from "react-native";
 import { COLORS } from "./colors";
+import { FONTS } from "./fonts";
 
 export const styles = StyleSheet.create({
 	container: {
@@ -57,7 +58,7 @@ export const styles = StyleSheet.create({
 	},
 	newsBadge: {
 		fontSize: 10,
-		fontWeight: "bold",
+		fontFamily: FONTS.bold,
 		color: COLORS.primary,
 		backgroundColor: COLORS.primaryLight,
 		paddingHorizontal: 8,
@@ -66,7 +67,7 @@ export const styles = StyleSheet.create({
 	},
 	announcementBadge: {
 		fontSize: 10,
-		fontWeight: "bold",
+		fontFamily: FONTS.bold,
 		color: COLORS.success,
 		backgroundColor: "#e6fbf3",
 		paddingHorizontal: 8,
@@ -75,7 +76,7 @@ export const styles = StyleSheet.create({
 	},
 	cardTitle: {
 		fontSize: 18,
-		fontWeight: "bold",
+		fontFamily: FONTS.bold,
 		color: COLORS.textDark,
 		marginBottom: 4,
 	},
@@ -83,17 +84,19 @@ export const styles = StyleSheet.create({
 		color: COLORS.textLight,
 		fontSize: 12,
 		marginBottom: 12,
+		fontFamily: FONTS.regular,
 	},
 	sender: {
 		color: COLORS.textLight,
 		fontSize: 12,
-		fontWeight: "600",
+		fontFamily: FONTS.semiBold,
 		marginBottom: 12,
 	},
 	content: {
 		color: COLORS.textDark,
 		lineHeight: 20,
 		fontSize: 14,
+		fontFamily: FONTS.regular,
 	},
 	emptyContainer: {
 		padding: 32,
@@ -102,6 +105,7 @@ export const styles = StyleSheet.create({
 	emptyText: {
 		color: COLORS.textLight,
 		fontSize: 15,
+		fontFamily: FONTS.regular,
 	},
 	guestContainer: {
 		flex: 1,
@@ -119,7 +123,7 @@ export const styles = StyleSheet.create({
 	},
 	guestTitle: {
 		color: COLORS.primary,
-		fontWeight: "bold",
+		fontFamily: FONTS.bold,
 		fontSize: 20,
 		marginBottom: 8,
 	},
@@ -129,6 +133,7 @@ export const styles = StyleSheet.create({
 		marginBottom: 20,
 		fontSize: 14,
 		lineHeight: 20,
+		fontFamily: FONTS.regular,
 	},
 	guestButton: {
 		backgroundColor: COLORS.primary,
@@ -136,7 +141,7 @@ export const styles = StyleSheet.create({
 		borderRadius: 8,
 	},
 	guestButtonLabel: {
-		fontWeight: "bold",
+		fontFamily: FONTS.bold,
 		color: COLORS.white,
 	},
 
@@ -162,7 +167,7 @@ export const styles = StyleSheet.create({
 	},
 	featuredBadge: {
 		fontSize: 10,
-		fontWeight: "bold",
+		fontFamily: FONTS.bold,
 		color: COLORS.white,
 		backgroundColor: COLORS.primary,
 		paddingHorizontal: 8,
@@ -171,7 +176,7 @@ export const styles = StyleSheet.create({
 	},
 	featuredTitle: {
 		fontSize: 20,
-		fontWeight: "bold",
+		fontFamily: FONTS.bold,
 		color: COLORS.textDark,
 		marginTop: 4,
 		marginBottom: 2,
@@ -180,6 +185,7 @@ export const styles = StyleSheet.create({
 		color: COLORS.textDark,
 		lineHeight: 20,
 		fontSize: 14,
+		fontFamily: FONTS.regular,
 	},
 
 	// Stylizacja dla małych newsów w stylu Flashscore
@@ -210,7 +216,7 @@ export const styles = StyleSheet.create({
 	},
 	smallNewsBadge: {
 		fontSize: 9,
-		fontWeight: "bold",
+		fontFamily: FONTS.bold,
 		color: COLORS.primary,
 		backgroundColor: COLORS.primaryLight,
 		paddingHorizontal: 6,
@@ -219,7 +225,7 @@ export const styles = StyleSheet.create({
 	},
 	smallCardTitle: {
 		fontSize: 14,
-		fontWeight: "bold",
+		fontFamily: FONTS.bold,
 		color: COLORS.textDark,
 		lineHeight: 18,
 		marginBottom: 2,
@@ -228,12 +234,13 @@ export const styles = StyleSheet.create({
 	smallCardDate: {
 		color: COLORS.textLight,
 		fontSize: 11,
+		fontFamily: FONTS.regular,
 	},
 
 	// Dialog dla szczegółów aktualności
 	dialogTitle: {
 		fontSize: 18,
-		fontWeight: "bold",
+		fontFamily: FONTS.bold,
 		color: COLORS.textDark,
 	},
 	dialogContent: {
@@ -251,12 +258,13 @@ export const styles = StyleSheet.create({
 		color: COLORS.textLight,
 		fontSize: 12,
 		marginBottom: 8,
-		fontWeight: "600",
+		fontFamily: FONTS.semiBold,
 	},
 	dialogText: {
 		color: COLORS.textDark,
 		fontSize: 14,
 		lineHeight: 22,
+		fontFamily: FONTS.regular,
 	},
 
 	// Formularz dodawania postów
@@ -296,6 +304,7 @@ export const styles = StyleSheet.create({
 		color: COLORS.textDark,
 		flex: 1,
 		paddingRight: 10,
+		fontFamily: FONTS.regular,
 	},
 	pickerContainer: {
 		marginTop: 12,
@@ -303,7 +312,7 @@ export const styles = StyleSheet.create({
 	},
 	pickerLabel: {
 		fontSize: 14,
-		fontWeight: "bold",
+		fontFamily: FONTS.bold,
 		color: COLORS.textDark,
 		marginBottom: 6,
 	},
@@ -327,10 +336,11 @@ export const styles = StyleSheet.create({
 	teamChipText: {
 		fontSize: 12,
 		color: COLORS.textDark,
+		fontFamily: FONTS.regular,
 	},
 	teamChipTextActive: {
 		color: COLORS.primary,
-		fontWeight: "bold",
+		fontFamily: FONTS.bold,
 	},
 
 	// Upload i podgląd zdjęć
@@ -347,7 +357,7 @@ export const styles = StyleSheet.create({
 	},
 	uploadZoneTitle: {
 		fontSize: 13,
-		fontWeight: "bold",
+		fontFamily: FONTS.bold,
 		color: COLORS.textDark,
 		marginBottom: 2,
 	},
@@ -355,6 +365,7 @@ export const styles = StyleSheet.create({
 		fontSize: 11,
 		color: COLORS.textLight,
 		marginBottom: 12,
+		fontFamily: FONTS.regular,
 	},
 	uploadZoneButtons: {
 		flexDirection: "row",
@@ -379,7 +390,7 @@ export const styles = StyleSheet.create({
 	},
 	uploadZoneBtnText: {
 		fontSize: 12,
-		fontWeight: "bold",
+		fontFamily: FONTS.bold,
 		color: COLORS.primary,
 		marginLeft: 6,
 	},
@@ -416,7 +427,7 @@ export const styles = StyleSheet.create({
 	removeImageText: {
 		color: COLORS.white,
 		fontSize: 12,
-		fontWeight: "bold",
+		fontFamily: FONTS.bold,
 		marginLeft: 4,
 	},
 	uploadingContainer: {
@@ -429,6 +440,7 @@ export const styles = StyleSheet.create({
 		fontSize: 13,
 		color: COLORS.textDark,
 		marginLeft: 8,
+		fontFamily: FONTS.regular,
 	},
 
 	// Stylizacja opcji (switches)
@@ -452,13 +464,14 @@ export const styles = StyleSheet.create({
 	},
 	settingLabel: {
 		fontSize: 13,
-		fontWeight: "bold",
+		fontFamily: FONTS.bold,
 		color: COLORS.textDark,
 	},
 	settingDescription: {
 		fontSize: 11,
 		color: COLORS.textLight,
 		marginTop: 1,
+		fontFamily: FONTS.regular,
 	},
 
 	// Layouty modalów i przycisków
@@ -521,7 +534,7 @@ export const styles = StyleSheet.create({
 	swipeActionText: {
 		color: COLORS.white,
 		fontSize: 11,
-		fontWeight: "bold",
+		fontFamily: FONTS.bold,
 		marginTop: 4,
 	},
 });

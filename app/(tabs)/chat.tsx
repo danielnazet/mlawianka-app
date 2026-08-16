@@ -76,6 +76,7 @@ export default function ChatScreen() {
 	const [messagesLoading, setMessagesLoading] = useState(false);
 	const [sending, setSending] = useState(false);
 	const [error, setError] = useState("");
+	const [searchQuery, setSearchQuery] = useState("");
 
 	const flatListRef = useRef<FlatList<ChatMessage>>(null);
 	const isStaff = profile?.role === "admin" || profile?.role === "coach";
@@ -352,12 +353,36 @@ export default function ChatScreen() {
 		);
 	}
 
+	const filteredContacts = contacts.filter((contact) => {
+		const name = getContactName(contact).toLowerCase();
+		return name.includes(searchQuery.toLowerCase());
+	});
+
+	const showStaffCard = isStaff && staffConversationId && (!searchQuery || "sztab".includes(searchQuery.toLowerCase()));
+
 	return (
 		<ImageBackground
 			source={require("../assets/logo_gks.png")}
 			style={styles.container}
 			imageStyle={styles.backgroundImageStyle}
 		>
+			<View style={styles.searchBarContainer}>
+				<TextInput
+					value={searchQuery}
+					onChangeText={setSearchQuery}
+					placeholder="Szukaj kontaktu…"
+					mode="outlined"
+					outlineColor={COLORS.border}
+					activeOutlineColor={COLORS.primary}
+					textColor={COLORS.textDark}
+					style={styles.searchBar}
+					contentStyle={styles.searchBarInput}
+					outlineStyle={styles.searchBarOutline}
+					left={<TextInput.Icon icon="magnify" color={COLORS.textLight} />}
+					right={searchQuery ? <TextInput.Icon icon="close" color={COLORS.textLight} onPress={() => setSearchQuery("")} /> : null}
+				/>
+			</View>
+
 			<ScrollView
 				contentContainerStyle={styles.scrollContainer}
 				refreshControl={
@@ -369,7 +394,7 @@ export default function ChatScreen() {
 					<Text style={styles.listSubtitle}>Widzisz tylko osoby, z którymi możesz rozmawiać.</Text>
 				</View>
 
-				{isStaff && staffConversationId ? (
+				{showStaffCard ? (
 					<>
 						<Text style={styles.sectionTitle}>Sztab</Text>
 						<Card style={[styles.userCard, styles.staffCard]} onPress={openStaffChat}>
@@ -397,8 +422,16 @@ export default function ChatScreen() {
 							Sprawdź przypisanie drużyny i trenera w panelu administratora.
 						</Text>
 					</View>
+				) : filteredContacts.length === 0 ? (
+					<View style={styles.emptyContacts}>
+						<Avatar.Icon size={56} icon="account-search-outline" style={styles.emptyAvatar} />
+						<Text style={styles.emptyTitle}>Brak wyników</Text>
+						<Text style={styles.emptyText}>
+							Nie znaleziono kontaktu pasującego do wyszukiwania "{searchQuery}".
+						</Text>
+					</View>
 				) : (
-					contacts.map((contact) => (
+					filteredContacts.map((contact) => (
 						<Card
 							key={contact.id}
 							style={styles.userCard}
@@ -447,6 +480,25 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
 	container: { flex: 1, backgroundColor: COLORS.background },
 	backgroundImageStyle: { opacity: 0.045, resizeMode: "contain" },
+	searchBarContainer: {
+		paddingHorizontal: 16,
+		paddingTop: 12,
+		paddingBottom: 12,
+		backgroundColor: COLORS.white,
+		borderBottomWidth: 1,
+		borderBottomColor: "#f1f5f9",
+	},
+	searchBar: {
+		backgroundColor: COLORS.background,
+		height: 44,
+	},
+	searchBarInput: {
+		fontSize: 14,
+		fontFamily: FONTS.regular,
+	},
+	searchBarOutline: {
+		borderRadius: 44,
+	},
 	centerContainer: {
 		flex: 1,
 		alignItems: "center",

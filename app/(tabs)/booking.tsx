@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, ImageBackground } from "react-native";
+import { View, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, ImageBackground, TouchableOpacity, Alert } from "react-native";
 import { Card, Title, Button, Text, Paragraph, Portal, Dialog, TextInput, HelperText } from "react-native-paper";
 import { router } from "expo-router";
+import { MaterialIcons } from "@expo/vector-icons";
+import Swipeable from "react-native-gesture-handler/Swipeable";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
 import { COLORS } from "../../css/colors";
+import { FONTS } from "../../css/fonts";
 
 import { Training, OrlikBooking } from "../../types";
 
@@ -20,6 +23,7 @@ export default function BookingScreen() {
 
 	// Stan formularza rezerwacji Orlika
 	const [dialogVisible, setDialogVisible] = useState(false);
+	const [editOrlikBookingId, setEditOrlikBookingId] = useState<number | null>(null);
 	const [bookingDate, setBookingDate] = useState(""); // YYYY-MM-DD
 	const [startTime, setStartTime] = useState(""); // HH:MM
 	const [endTime, setEndTime] = useState(""); // HH:MM
@@ -44,7 +48,6 @@ export default function BookingScreen() {
 			setTrainings(trainingsData || []);
 
 			if (user) {
-				// Pobierz rezerwacje zalogowanego użytkownika
 				const { data: bookingsData, error: bookingsError } = await supabase
 					.from("bookings")
 					.select("training_id")
@@ -81,7 +84,6 @@ export default function BookingScreen() {
 		try {
 			let userTeamId = profile?.team_id || null;
 
-			// Jeśli to rodzic, filtrujemy treningi po zespole dziecka
 			if (profile && profile.role === "parent") {
 				const { data: relations } = await supabase
 					.from("parent_children")
@@ -149,26 +151,40 @@ export default function BookingScreen() {
 				setUserBookings((prev) => [...prev, trainingId]);
 			}
 		} catch (error) {
-			console.error("Booking action error:", error);
+			console.error("Error toggling training booking:", error);
 		} finally {
 			setActionLoadingId(null);
 		}
 	};
 
 	const openOrlikDialog = () => {
-		const today = new Date().toISOString().split("T")[0];
-		setBookingDate(today);
-		setStartTime("17:00");
-		setEndTime("18:30");
+		setEditOrlikBookingId(null);
+		setBookingDate("");
+		setStartTime("");
+		setEndTime("");
 		setBookingDesc("");
 		setBookingError("");
 		setDialogVisible(true);
 	};
 
+	const openEditOrlikDialog = (ob: OrlikBooking) => {
+		setEditOrlikBookingId(ob.id);
+		setBookingDate(ob.booking_date);
+		setStartTime(ob.start_time);
+		setEndTime(ob.end_time);
+		setBookingDesc(ob.description || "");
+		setBookingError("");
+		setDialogVisible(true);
+	};
+
 	const handleAddOrlikBooking = async () => {
-		if (!user) return;
 		if (!bookingDate || !startTime || !endTime) {
-			setBookingError("Wszystkie pola są wymagane.");
+			setBookingError("Proszę wypełnić wszystkie pola.");
+			return;
+		}
+
+		if (!user) {
+			setBookingError("Użytkownik nie jest zalogowany.");
 			return;
 		}
 
@@ -176,55 +192,74 @@ export default function BookingScreen() {
 		setBookingError("");
 
 		try {
-			const { error } = await supabase.from("orlik_bookings").insert([
-				{
-					booked_by: user.id,
-					booking_date: bookingDate,
-					start_time: startTime,
-					end_time: endTime,
-					description: bookingDesc,
-				},
-			]);
+			if (editOrlikBookingId !== null) {
+				const { error } = await supabase
+					.from("orlik_bookings")
+					.update({
+						booking_date: bookingDate,
+						start_time: startTime,
+						end_time: endTime,
+						description: bookingDesc,
+					})
+					.eq("id", editOrlikBookingId);
 
-			if (error) throw error;
+				if (error) throw error;
+			} else {
+				const { error } = await supabase.from("orlik_bookings").insert([
+					{
+						booking_date: bookingDate,
+						start_time: startTime,
+						end_time: endTime,
+						description: bookingDesc,
+						booked_by: user.id,
+					},
+				]);
+
+				if (error) throw error;
+			}
 
 			setDialogVisible(false);
 			fetchOrlikBookings();
 		} catch (err: any) {
 			setBookingError(err.message || "Błąd zapisu rezerwacji");
-			console.error(err);
 		} finally {
 			setBookingLoading(false);
 		}
 	};
 
 	const handleCancelOrlikBooking = async (bookingId: number) => {
-		try {
-			const { error } = await supabase.from("orlik_bookings").delete().eq("id", bookingId);
-			if (error) throw error;
-			fetchOrlikBookings();
-		} catch (err) {
-			console.error("Error deleting Orlik booking:", err);
-		}
-	};
-
-	const formatOrlikTime = (timeStr: string) => {
-		if (!timeStr) return "";
-		// "17:00:00" -> "17:00"
-		const parts = timeStr.split(":");
-		if (parts.length >= 2) return `${parts[0]}:${parts[1]}`;
-		return timeStr;
+		Alert.alert(
+			"Anulowanie rezerwacji",
+			"Czy na pewno chcesz anulować tę rezerwację boiska Orlik?",
+			[
+				{ text: "Wróć", style: "cancel" },
+				{
+					text: "Anuluj rezerwację",
+					style: "destructive",
+					onPress: async () => {
+						try {
+							const { error } = await supabase.from("orlik_bookings").delete().eq("id", bookingId);
+							if (error) throw error;
+							fetchOrlikBookings();
+						} catch (error) {
+							console.error("Error cancelling Orlik booking:", error);
+							Alert.alert("Błąd", "Nie udało się anulować rezerwacji");
+						}
+					}
+				}
+			]
+		);
 	};
 
 	const formatOrlikDate = (dateStr: string) => {
 		if (!dateStr) return "";
-		const date = new Date(dateStr);
-		return date.toLocaleDateString("pl-PL", {
-			weekday: "short",
-			day: "2-digit",
-			month: "2-digit",
-			year: "numeric",
-		});
+		const [year, month, day] = dateStr.split("-");
+		return `${day}.${month}.${year}`;
+	};
+
+	const formatOrlikTime = (timeStr: string) => {
+		if (!timeStr) return "";
+		return timeStr.substring(0, 5);
 	};
 
 	if (loading) {
@@ -245,7 +280,7 @@ export default function BookingScreen() {
 				<View style={styles.guestContainer}>
 					<Card style={styles.guestCard}>
 						<Card.Content style={styles.guestContent}>
-							<Title style={styles.guestTitle}>Strefa Zapisów i Rezerwacji</Title>
+							<Title style={styles.guestTitle}>Rezerwacje Orlika</Title>
 							<Paragraph style={styles.guestDescription}>
 								Rejestracja na treningi oraz podgląd rezerwacji Orlika są dostępne wyłącznie dla zalogowanych członków klubu GKS Strzegowo.
 							</Paragraph>
@@ -349,35 +384,72 @@ export default function BookingScreen() {
 										<Text style={styles.emptyText}>Brak zarezerwowanych terminów.</Text>
 									</View>
 								) : (
-									orlikBookings.map((ob) => (
-										<Card key={ob.id} style={[styles.card, styles.orlikCard]}>
-											<Card.Content>
-												<View style={styles.cardHeader}>
-													<Title style={styles.orlikTimeText}>
-														{formatOrlikTime(ob.start_time)} - {formatOrlikTime(ob.end_time)}
-													</Title>
-													<Text style={styles.orlikDateBadge}>{formatOrlikDate(ob.booking_date)}</Text>
-												</View>
-												{ob.description ? (
-													<Paragraph style={styles.orlikDesc}>{ob.description}</Paragraph>
-												) : null}
-												<Text style={styles.orlikBookedBy}>
-													Rezerwujący: {ob.profile ? `${ob.profile.first_name} ${ob.profile.last_name}` : "Trener"}
-												</Text>
+									orlikBookings.map((ob) => {
+										let swipeableRef: Swipeable | null = null;
+										const canManage = profile?.role === "admin" || (profile?.role === "coach" && ob.booked_by === user.id);
 
-												{(profile?.role === "admin" || (profile?.role === "coach" && ob.booked_by === user.id)) && (
-													<Button
-														mode="text"
-														textColor={COLORS.error}
-														onPress={() => handleCancelOrlikBooking(ob.id)}
-														style={styles.orlikCancelBtn}
+										const renderRightActions = () => (
+											<View style={styles.swipeActionsContainer}>
+												<TouchableOpacity
+													style={[styles.swipeActionBtn, styles.editActionBtn]}
+													onPress={() => {
+														swipeableRef?.close();
+														openEditOrlikDialog(ob);
+													}}
+												>
+													<MaterialIcons name="edit" size={22} color={COLORS.white} />
+													<Text style={styles.swipeActionText}>Edytuj</Text>
+												</TouchableOpacity>
+												<TouchableOpacity
+													style={[styles.swipeActionBtn, styles.deleteActionBtn]}
+													onPress={() => {
+														swipeableRef?.close();
+														handleCancelOrlikBooking(ob.id);
+													}}
+												>
+													<MaterialIcons name="delete" size={22} color={COLORS.white} />
+													<Text style={styles.swipeActionText}>Usuń</Text>
+												</TouchableOpacity>
+											</View>
+										);
+
+										const cardContent = (
+											<Card style={[styles.card, styles.orlikCard]}>
+												<Card.Content>
+													<View style={styles.cardHeader}>
+														<Title style={styles.orlikTimeText}>
+															{formatOrlikTime(ob.start_time)} - {formatOrlikTime(ob.end_time)}
+														</Title>
+														<Text style={styles.orlikDateBadge}>{formatOrlikDate(ob.booking_date)}</Text>
+													</View>
+													{ob.description ? (
+														<Paragraph style={styles.orlikDesc}>{ob.description}</Paragraph>
+													) : null}
+													<Text style={styles.orlikBookedBy}>
+														Rezerwujący: {ob.profile ? `${ob.profile.first_name} ${ob.profile.last_name}` : "Trener"}
+													</Text>
+												</Card.Content>
+											</Card>
+										);
+
+										if (canManage) {
+											return (
+												<View key={ob.id} style={{ marginBottom: 16 }}>
+													<Swipeable
+														ref={ref => { swipeableRef = ref; }}
+														renderRightActions={renderRightActions}
+														friction={2}
+														rightThreshold={40}
 													>
-														Anuluj rezerwację
-													</Button>
-												)}
-											</Card.Content>
-										</Card>
-									))
+														<View style={{ marginBottom: -16, overflow: "hidden" }}>
+															{cardContent}
+														</View>
+													</Swipeable>
+												</View>
+											);
+										}
+										return <View key={ob.id}>{cardContent}</View>;
+									})
 								)}
 							</View>
 						)}
@@ -386,8 +458,10 @@ export default function BookingScreen() {
 			)}
 
 			<Portal>
-				<Dialog visible={dialogVisible} onDismiss={() => !bookingLoading && setDialogVisible(false)}>
-					<Dialog.Title>Rezerwacja boiska Orlik</Dialog.Title>
+				<Dialog visible={dialogVisible} onDismiss={() => !bookingLoading && setDialogVisible(false)} style={styles.dialog}>
+					<Dialog.Title style={styles.dialogTitle}>
+						{editOrlikBookingId !== null ? "Edytuj rezerwację Orlika" : "Rezerwacja boiska Orlik"}
+					</Dialog.Title>
 					<Dialog.Content>
 						<TextInput
 							label="Data rezerwacji (np. 2026-08-20)"
@@ -428,11 +502,11 @@ export default function BookingScreen() {
 						{bookingError ? <Text style={styles.formError}>{bookingError}</Text> : null}
 					</Dialog.Content>
 					<Dialog.Actions>
-						<Button onPress={() => setDialogVisible(false)} disabled={bookingLoading}>
+						<Button onPress={() => setDialogVisible(false)} disabled={bookingLoading} labelStyle={styles.dialogBtnLabel}>
 							Anuluj
 						</Button>
-						<Button onPress={handleAddOrlikBooking} loading={bookingLoading} disabled={bookingLoading}>
-							Zarezerwuj
+						<Button onPress={handleAddOrlikBooking} loading={bookingLoading} disabled={bookingLoading} labelStyle={styles.dialogBtnLabel}>
+							Zapisz
 						</Button>
 					</Dialog.Actions>
 				</Dialog>
@@ -478,7 +552,7 @@ const styles = StyleSheet.create({
 		marginBottom: 20,
 		color: COLORS.primary,
 		fontSize: 22,
-		fontWeight: "bold",
+		fontFamily: FONTS.bold,
 	},
 	card: {
 		marginBottom: 16,
@@ -489,6 +563,7 @@ const styles = StyleSheet.create({
 		shadowOpacity: 0.05,
 		shadowRadius: 8,
 		elevation: 2,
+		overflow: "hidden",
 	},
 	orlikCard: {
 		borderLeftWidth: 4,
@@ -503,13 +578,14 @@ const styles = StyleSheet.create({
 	cardTitle: {
 		color: COLORS.textDark,
 		fontSize: 18,
-		fontWeight: "bold",
+		fontFamily: FONTS.bold,
 		marginBottom: 8,
 	},
 	infoText: {
 		color: COLORS.textLight,
 		fontSize: 14,
 		marginVertical: 2,
+		fontFamily: FONTS.regular,
 	},
 	button: {
 		marginTop: 16,
@@ -534,11 +610,11 @@ const styles = StyleSheet.create({
 	},
 	orlikAddBtnLabel: {
 		color: COLORS.white,
-		fontWeight: "bold",
+		fontFamily: FONTS.bold,
 	},
 	orlikTimeText: {
 		fontSize: 18,
-		fontWeight: "bold",
+		fontFamily: FONTS.bold,
 		color: COLORS.textDark,
 	},
 	orlikDateBadge: {
@@ -548,21 +624,18 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 8,
 		paddingVertical: 2,
 		borderRadius: 4,
-		fontWeight: "600",
+		fontFamily: FONTS.semiBold,
 	},
 	orlikDesc: {
 		color: COLORS.textDark,
 		fontSize: 14,
 		marginBottom: 6,
+		fontFamily: FONTS.regular,
 	},
 	orlikBookedBy: {
 		color: COLORS.textLight,
 		fontSize: 12,
-		fontStyle: "italic",
-	},
-	orlikCancelBtn: {
-		alignSelf: "flex-end",
-		marginTop: 8,
+		fontFamily: FONTS.regular,
 	},
 	emptyContainer: {
 		padding: 32,
@@ -572,6 +645,7 @@ const styles = StyleSheet.create({
 		color: COLORS.textLight,
 		fontSize: 15,
 		textAlign: "center",
+		fontFamily: FONTS.regular,
 	},
 	guestContainer: {
 		flex: 1,
@@ -589,7 +663,7 @@ const styles = StyleSheet.create({
 	},
 	guestTitle: {
 		color: COLORS.primary,
-		fontWeight: "bold",
+		fontFamily: FONTS.bold,
 		fontSize: 20,
 		marginBottom: 8,
 	},
@@ -599,6 +673,7 @@ const styles = StyleSheet.create({
 		marginBottom: 20,
 		fontSize: 14,
 		lineHeight: 20,
+		fontFamily: FONTS.regular,
 	},
 	guestButton: {
 		backgroundColor: COLORS.primary,
@@ -606,7 +681,7 @@ const styles = StyleSheet.create({
 		borderRadius: 8,
 	},
 	guestButtonLabel: {
-		fontWeight: "bold",
+		fontFamily: FONTS.bold,
 		color: COLORS.white,
 	},
 	formInput: {
@@ -618,5 +693,46 @@ const styles = StyleSheet.create({
 		marginTop: 8,
 		textAlign: "center",
 		fontSize: 13,
+		fontFamily: FONTS.bold,
+	},
+	dialog: {
+		borderRadius: 22,
+		backgroundColor: COLORS.white,
+	},
+	dialogTitle: {
+		fontFamily: FONTS.extraBold,
+		color: COLORS.primary,
+		fontSize: 20,
+	},
+	dialogBtnLabel: {
+		fontFamily: FONTS.bold,
+	},
+	swipeActionsContainer: {
+		flexDirection: "row",
+		width: 140,
+		height: "100%",
+		overflow: "hidden",
+		borderTopRightRadius: 12,
+		borderBottomRightRadius: 12,
+	},
+	swipeActionBtn: {
+		flex: 1,
+		justifyContent: "center",
+		alignItems: "center",
+		height: "100%",
+	},
+	editActionBtn: {
+		backgroundColor: COLORS.primary,
+	},
+	deleteActionBtn: {
+		backgroundColor: "#ef4444",
+		borderTopRightRadius: 12,
+		borderBottomRightRadius: 12,
+	},
+	swipeActionText: {
+		color: COLORS.white,
+		fontSize: 11,
+		fontFamily: FONTS.bold,
+		marginTop: 4,
 	},
 });
