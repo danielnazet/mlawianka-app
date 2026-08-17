@@ -135,13 +135,12 @@ npx expo start -c
 | [`types/booking.ts`](file:///d:/Nowy%20folder/mlawianka-app/types/booking.ts) | **Nowy** | Interfejs typów dla rezerwacji Orlika. |
 | [`types/chat.ts`](file:///d:/Nowy%20folder/mlawianka-app/types/chat.ts) | **Nowy** | Interfejsy typów dla wiadomości i pokoi rozmów. |
 | [`constants/index.ts`](file:///d:/Nowy%20folder/mlawianka-app/constants/index.ts) | **Nowy** | Główny barrel export stałych aplikacji. |
-| [`constants/news.ts`](file:///d:/Nowy%20folder/mlawianka-app/constants/news.ts) | **Nowy** | Stałe statyczne dla aktualności i linków testowych Picsum. |
-| [`supabase/migrations/20260814000100_create_admin.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260814000100_create_admin.sql) | **Nowy** | Migracja SQL tworząca konto głównego admina. |
-| [`supabase/migrations/20260814000200_news_rls.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260814000200_news_rls.sql) | **Nowy** | Reguły zapisu RLS dla tabeli news umożliwiające adminowi dodawanie aktualności. |
+| [`consta| [`supabase/migrations/20260814000200_news_rls.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260814000200_news_rls.sql) | **Nowy** | Reguły zapisu RLS dla tabeli news umożliwiające adminowi dodawanie aktualności. |
 | [`supabase/migrations/20260814000300_storage_bucket.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260814000300_storage_bucket.sql) | **Nowy** | Utworzenie kubełka storage `news-images` i przypisanie polityk wgrania zdjęć. |
 | [`supabase/migrations/20260814000400_news_important.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260814000400_news_important.sql) | **Nowy** | Dodanie kolumny `is_important` do tabeli news. |
 | [`supabase/migrations/20260817131000_update_trigger_coach.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260817131000_update_trigger_coach.sql) | **Nowy** | Wyzwalacz rejestracji rozszerzony o role trenera i admina w public.handle_new_user(). |
 | [`supabase/migrations/20260817134000_profiles_push_token.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260817134000_profiles_push_token.sql) | **Nowy** | Dodanie kolumny `push_token` do profili dla wysyłania powiadomień w tle. |
+| [`supabase/migrations/20260817143000_enable_realtime_news_trainings.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260817143000_enable_realtime_news_trainings.sql) | **Nowy** | Włączenie usługi Realtime dla tabel `news`, `announcements` oraz `trainings`. |
 | [`contexts/NotificationContext.tsx`](file:///d:/Nowy%20folder/mlawianka-app/contexts/NotificationContext.tsx) | **Nowy** | Globalny manager powiadomień realtime, liczników nieprzeczytanych i odznaki. |
 | [`app/admin/manage_members.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/admin/manage_members.tsx) | **Nowy** | Ekran administratora do usuwania i przenoszenia członków do innych grup. |
 | [`components/ClubTabBar.tsx`](file:///d:/Nowy%20folder/mlawianka-app/components/ClubTabBar.tsx) | Zmodyfikowany | Przejście na jasny styl nawigacji, szara kapsułka i niebieskie wskaźniki odznaki. |
@@ -161,10 +160,11 @@ npx expo start -c
    - Pozwala on przeglądać zarejestrowanych zawodników (imię, nazwisko, e-mail, wiek, aktualna grupa) oraz rodziców (imię, nazwisko, e-mail, dane dziecka, wiek dziecka, grupa dziecka).
    - Administrator może przenieść każdego członka do innej grupy (dialog z listą grup i opcją "Brak przypisania") lub trwale usunąć profil.
 
-3. **System Powiadomień Realtime & Odznaka**:
+3. **System Powiadomień Realtime, Odznaka i Pełna Synchronizacja**:
    - Wdrożono dostawcę [`contexts/NotificationContext.tsx`](file:///d:/Nowy%20folder/mlawianka-app/contexts/NotificationContext.tsx) obsługującego powiadomienia systemowe.
-   - **Odznaka ikony (Badge)**: W dolnym menu obok ikonek "Czat" oraz "Aktualności" pojawia się niebieskie kółko z liczbą nieprzeczytanych powiadomień. Liczniki rosną, jeśli nowa wiadomość/komunikat nadejdzie, gdy użytkownik jest na innym ekranie, i zerują się automatycznie po wejściu na ten ekran.
-   - **In-App Toast**: Gdy aplikacja jest otwarta, powiadomienia wysuwają się z góry ekranu w postaci estetycznego niebiesko-białego baneru (zgodnego z czcionkami Outfit) i odtwarzają delikatną wibrację.
+   - **Wskaźnik tab baru (Badge)**: W dolnym menu obok ikonek "Czat" oraz "Aktualności" pojawia się niebieskie kółko z liczbą nieprzeczytanych powiadomień.
+   - **Wskaźniki czatów (Osoby kontaktowe)**: Na liście kontaktów obok każdego nadawcy (lub pokoju sztabu) wyświetla się niebieski badge z cyfrą nieprzeczytanych wiadomości od tej osoby. Licznik jest zapisywany w `AsyncStorage` (osobno dla każdego zalogowanego konta) i zeruje się w locie po otwarciu czatu, co natychmiast pomniejsza sumaryczny licznik na dolnym pasku nawigacyjnym.
+   - **Realtime DB Publication**: Aktywowano nasłuchiwanie w czasie rzeczywistym dla tabel `news`, `announcements` oraz `trainings` poprzez skrypt migracji.
 
 4. **Multiplatformowy Upload Zdjęć (Zgodność z Web)**:
    - Naprawiono błąd `readAsStringAsync is not available on web` przy dodawaniu trenera oraz dodawaniu aktualności w przeglądarce.
