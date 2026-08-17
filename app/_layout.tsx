@@ -2,6 +2,7 @@ import React from "react";
 import { Stack } from "expo-router";
 import { PaperProvider } from "react-native-paper";
 import { AuthProvider } from "../contexts/AuthContext";
+import { NotificationProvider } from "../contexts/NotificationContext";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useFonts, Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold, Outfit_700Bold, Outfit_800ExtraBold } from "@expo-google-fonts/outfit";
 import { ActivityIndicator, View } from "react-native";
@@ -26,9 +27,11 @@ export default function Layout() {
 	return (
 		<GestureHandlerRootView style={{ flex: 1 }}>
 			<AuthProvider>
-				<PaperProvider>
-					<Stack screenOptions={{ headerShown: false }} />
-				</PaperProvider>
+				<NotificationProvider>
+					<PaperProvider>
+						<Stack screenOptions={{ headerShown: false }} />
+					</PaperProvider>
+				</NotificationProvider>
 			</AuthProvider>
 		</GestureHandlerRootView>
 	);

@@ -140,27 +140,39 @@ npx expo start -c
 | [`supabase/migrations/20260814000200_news_rls.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260814000200_news_rls.sql) | **Nowy** | Reguły zapisu RLS dla tabeli news umożliwiające adminowi dodawanie aktualności. |
 | [`supabase/migrations/20260814000300_storage_bucket.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260814000300_storage_bucket.sql) | **Nowy** | Utworzenie kubełka storage `news-images` i przypisanie polityk wgrania zdjęć. |
 | [`supabase/migrations/20260814000400_news_important.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260814000400_news_important.sql) | **Nowy** | Dodanie kolumny `is_important` do tabeli news. |
+| [`supabase/migrations/20260817131000_update_trigger_coach.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260817131000_update_trigger_coach.sql) | **Nowy** | Wyzwalacz rejestracji rozszerzony o role trenera i admina w public.handle_new_user(). |
+| [`supabase/migrations/20260817134000_profiles_push_token.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260817134000_profiles_push_token.sql) | **Nowy** | Dodanie kolumny `push_token` do profili dla wysyłania powiadomień w tle. |
+| [`contexts/NotificationContext.tsx`](file:///d:/Nowy%20folder/mlawianka-app/contexts/NotificationContext.tsx) | **Nowy** | Globalny manager powiadomień realtime, liczników nieprzeczytanych i odznaki. |
+| [`app/admin/manage_members.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/admin/manage_members.tsx) | **Nowy** | Ekran administratora do usuwania i przenoszenia członków do innych grup. |
+| [`components/ClubTabBar.tsx`](file:///d:/Nowy%20folder/mlawianka-app/components/ClubTabBar.tsx) | Zmodyfikowany | Przejście na jasny styl nawigacji, szara kapsułka i niebieskie wskaźniki odznaki. |
 
 ---
 
-## 🔄 Najnowsze Zmiany i Udoskonalenia (Wdrożone Dzisiaj)
+## 🔄 Najnowsze Zmiany i Udoskonalenia (Wdrożone Ostatnio)
 
-1. **Wyróżnianie i Przypinanie Aktualności**:
-   - Dodano kolumnę `is_important` do tabeli `news` (domyślnie `false`).
-   - Zaktualizowano zapytanie w `fetchData` w celu sortowania (`is_important DESC, created_at DESC`). Najważniejsze posty są zawsze przypięte na samej górze.
-   - Wdrożono czytelną separację badge'ów ("NAJWAŻNIEJSZE" dla przypiętych ważnych wiadomości, "NAJNOWSZE" dla standardowych).
-   - Dodano przełącznik do formularza dodawania i edycji newsów: *"Najważniejsza wiadomość (Przypnij na górze)"*.
-2. **Dynamiczny Parser IP (Localhost/127.0.0.1)**:
-   - Funkcja `getNewsImage` automatycznie wykrywa lokalne adresy loopback z Supabase CLI i podmienia je na host IP z konfiguracji `.env`, dzięki czemu telefony testujące w sieci lokalnej bez problemu wczytują przesłane zdjęcia.
-3. **Wgrywanie Plików w Expo SDK 54**:
-   - Wyeliminowano błąd tworzenia pustych 0-bajtowych plików w storage przez natywny `fetch` na lokalnych plikach.
-   - Zaimplementowano bezbłędny przesył binarny: plik z telefonu jest odczytywany jako Base64 przez `expo-file-system/legacy`, konwertowany do standardowego bufora `ArrayBuffer` przez `base64-arraybuffer` i przesyłany bezpośrednio do Supabase Storage.
-4. **Administracyjne Zarządzanie Newsami (Gesty Swipe-Left)**:
-   - Owinięto karty newsów w natywny komponent `<Swipeable>` dla zalogowanych użytkowników z rolą `admin`.
-   - Przesunięcie karty w lewo odsłania dwa eleganckie, dopasowane do wysokości karty przyciski: **Edytuj** oraz **Usuń** (z zaokrągleniami pasującymi do rogów karty).
-   - **Edycja**: Formularz ładuje dotychczasowe dane i wykonuje zapytanie `update()` w Supabase.
-   - **Usuwanie**: Po kliknięciu i zatwierdzeniu okna `Alert`, news jest usuwany z bazy danych, a powiązany z nim plik graficzny jest automatycznie kasowany z kubełka storage.
-5. **Przekierowanie po Wylogowaniu**:
-   - Zmieniono domyślny cel przekierowania po wylogowaniu z `/auth/login` na główny ekran z listą aktualności `/news`. Niezalogowani użytkownicy mogą teraz swobodnie czytać publiczne newsy po wylogowaniu.
-6. **Usunięcie Logów Diagnostycznych**:
-   - Usunięto z kodu tymczasowe komunikaty `[DEBUG] console.log`, oczyszczając terminal Metro i kod produkcyjny.
+1. **Nowy Styl Tab Baru (Zgodnie z projektem)**:
+   - Zmieniono motyw dolnego paska nawigacji na jasnoszary (`#F9FAFB`) z jasnoszarą obwódką (`#E5E7EB`).
+   - Aktywny tab wyróżnia się szarą kapsułką/pillsem (`#E5E7EB` z otoczką `#D1D5DB`) – dokładnie tak jak na przesłanym wzorze.
+   - Aktywne ikony/teksty są niebieskie (`COLORS.primary`), a nieaktywne szare (`#64748b`).
+   - Przy przełączaniu ikonka i napis płynnie się powiększają (`scale: 1.1`) z użyciem fizyki sprężyny (`withSpring`).
+
+2. **Zarządzanie Członkami (Nowy panel dla Admina)**:
+   - Dodano nowy ekran administracyjny [`app/admin/manage_members.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/admin/manage_members.tsx).
+   - Pozwala on przeglądać zarejestrowanych zawodników (imię, nazwisko, e-mail, wiek, aktualna grupa) oraz rodziców (imię, nazwisko, e-mail, dane dziecka, wiek dziecka, grupa dziecka).
+   - Administrator może przenieść każdego członka do innej grupy (dialog z listą grup i opcją "Brak przypisania") lub trwale usunąć profil.
+
+3. **System Powiadomień Realtime & Odznaka**:
+   - Wdrożono dostawcę [`contexts/NotificationContext.tsx`](file:///d:/Nowy%20folder/mlawianka-app/contexts/NotificationContext.tsx) obsługującego powiadomienia systemowe.
+   - **Odznaka ikony (Badge)**: W dolnym menu obok ikonek "Czat" oraz "Aktualności" pojawia się niebieskie kółko z liczbą nieprzeczytanych powiadomień. Liczniki rosną, jeśli nowa wiadomość/komunikat nadejdzie, gdy użytkownik jest na innym ekranie, i zerują się automatycznie po wejściu na ten ekran.
+   - **In-App Toast**: Gdy aplikacja jest otwarta, powiadomienia wysuwają się z góry ekranu w postaci estetycznego niebiesko-białego baneru (zgodnego z czcionkami Outfit) i odtwarzają delikatną wibrację.
+
+4. **Multiplatformowy Upload Zdjęć (Zgodność z Web)**:
+   - Naprawiono błąd `readAsStringAsync is not available on web` przy dodawaniu trenera oraz dodawaniu aktualności w przeglądarce.
+   - Na platformie Web pliki są odczytywane jako Blob przy użyciu natywnego `fetch()`, a na telefonach za pomocą Base64 z biblioteki `expo-file-system/legacy`.
+
+5. **Poprawka Wyzwalacza Rejestracji Trenerów (Błąd Supabase)**:
+   - Rozwiązano błąd `Database error saving new user` podczas tworzenia trenera przez admina. Whitelistowano role `coach` i `admin` w bazie danych w wyzwalaczu rejestracji, eliminując błędne wymuszanie danych dziecka dla profili trenerskich.
+
+6. **Bezpieczne Area i Nawigacja**:
+   - Dodano obsługę `useSafeAreaInsets` w nagłówkach paneli admina, zapobiegając ucinaniu paska na telefonach z notchem.
+   - Wprowadzono bezpieczny mechanizm powrotu (`router.canGoBack()`) we wszystkich podstronach admina chroniący przed błędem `GO_BACK was not handled`.

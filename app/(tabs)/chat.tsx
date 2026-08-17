@@ -10,6 +10,7 @@ import {
 	StyleSheet,
 	View,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
 	Avatar,
 	Card,
@@ -20,6 +21,7 @@ import {
 } from "react-native-paper";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
+import { useNotifications } from "../../contexts/NotificationContext";
 import { COLORS } from "../../css/colors";
 import { FONTS } from "../../css/fonts";
 
@@ -65,6 +67,7 @@ const getInitials = (contact: ChatContact) =>
 
 export default function ChatScreen() {
 	const { user, profile } = useAuth();
+	const { unreadChatsMap, markChatAsRead, setActiveChatId } = useNotifications();
 	const [contacts, setContacts] = useState<ChatContact[]>([]);
 	const [staffConversationId, setStaffConversationId] = useState<string | null>(null);
 	const [activeChat, setActiveChat] = useState<ActiveChat | null>(null);
@@ -80,6 +83,18 @@ export default function ChatScreen() {
 
 	const flatListRef = useRef<FlatList<ChatMessage>>(null);
 	const isStaff = profile?.role === "admin" || profile?.role === "coach";
+
+	// Synchronize active chat ID with global context
+	useEffect(() => {
+		if (activeChat) {
+			setActiveChatId(activeChat.id);
+		} else {
+			setActiveChatId(null);
+		}
+		return () => {
+			setActiveChatId(null);
+		};
+	}, [activeChat, setActiveChatId]);
 
 	const loadChatHome = useCallback(async (asRefresh = false) => {
 		if (!user || !profile) {
@@ -132,6 +147,9 @@ export default function ChatScreen() {
 			if (rpcError) throw rpcError;
 			if (!data) throw new Error("Brak identyfikatora rozmowy");
 
+			// Wyzeruj licznik nieprzeczytanych w kontekście globalnym
+			markChatAsRead(contact.id);
+
 			setActiveChat({
 				id: data as string,
 				kind: "direct",
@@ -150,6 +168,10 @@ export default function ChatScreen() {
 
 	const openStaffChat = () => {
 		if (!staffConversationId) return;
+
+		// Wyzeruj licznik nieprzeczytanych w kontekście globalnym
+		markChatAsRead("staff");
+
 		setActiveChat({
 			id: staffConversationId,
 			kind: "staff",
@@ -404,6 +426,11 @@ export default function ChatScreen() {
 									<Text style={styles.staffName}>Sztab GKS Strzegowo</Text>
 									<Text style={styles.staffDescription}>Wszyscy administratorzy i trenerzy</Text>
 								</View>
+								{unreadChatsMap["staff"] > 0 && (
+									<View style={styles.badgeContainer}>
+										<Text style={styles.badgeText}>{unreadChatsMap["staff"]}</Text>
+									</View>
+								)}
 								<IconButton icon="chevron-right" iconColor={COLORS.primary} />
 							</Card.Content>
 						</Card>
@@ -459,6 +486,11 @@ export default function ChatScreen() {
 										{[roleLabels[contact.role], contact.team_name].filter(Boolean).join(" • ")}
 									</Text>
 								</View>
+								{unreadChatsMap[contact.id] > 0 && (
+									<View style={styles.badgeContainer}>
+										<Text style={styles.badgeText}>{unreadChatsMap[contact.id]}</Text>
+									</View>
+								)}
 								{openingChatId === contact.id ? (
 									<ActivityIndicator color={COLORS.primary} />
 								) : (
@@ -603,5 +635,20 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 		marginLeft: 7,
 		width: 48,
+	},
+	badgeContainer: {
+		backgroundColor: COLORS.primary,
+		minWidth: 20,
+		height: 20,
+		borderRadius: 10,
+		alignItems: "center",
+		justifyContent: "center",
+		paddingHorizontal: 6,
+		marginRight: 4,
+	},
+	badgeText: {
+		color: COLORS.white,
+		fontSize: 11,
+		fontFamily: FONTS.bold,
 	},
 });

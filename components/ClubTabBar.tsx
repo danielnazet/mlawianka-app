@@ -411,9 +411,9 @@ const styles = StyleSheet.create({
 
     borderRadius: 9,
     borderWidth: 2,
-    borderColor: COLORS.primaryDark,
+    borderColor: "#F9FAFB",
 
-    backgroundColor: COLORS.error,
+    backgroundColor: COLORS.primary,
 
     alignItems: "center",
     justifyContent: "center",

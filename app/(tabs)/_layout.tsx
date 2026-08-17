@@ -5,6 +5,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { View, Image, StyleSheet, Text } from "react-native";
 import { ClubTabBar } from "../../components/ClubTabBar";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNotifications } from "../../contexts/NotificationContext";
 import { FONTS } from "../../css/fonts";
 
 function HeaderBackground() {
@@ -66,6 +67,7 @@ function HeaderLogo() {
 
 export default function TabLayout() {
 	const { user, profile } = useAuth();
+	const { unreadChatsCount, unreadAnnouncementsCount } = useNotifications();
 
 	// Warunki dostępu
 	const isLoggedIn = Boolean(user);
@@ -106,6 +108,7 @@ export default function TabLayout() {
 				name="news"
 				options={{
 					title: "Aktualności",
+					tabBarBadge: unreadAnnouncementsCount > 0 ? unreadAnnouncementsCount : undefined,
 				}}
 			/>
 
@@ -129,6 +132,7 @@ export default function TabLayout() {
 				options={{
 					title: "Czat",
 					href: isLoggedIn ? undefined : null,
+					tabBarBadge: unreadChatsCount > 0 ? unreadChatsCount : undefined,
 				}}
 			/>
 
