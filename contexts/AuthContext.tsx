@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { supabase } from "../lib/supabase";
 import { User } from "@supabase/supabase-js";
 import { View, ActivityIndicator } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { Profile } from "../types";
 export { Profile };
@@ -54,12 +55,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	};
 
 	useEffect(() => {
+		const clearSupabaseKeys = async () => {
+			try {
+				const keys = await AsyncStorage.getAllKeys();
+				const supabaseKeys = keys.filter(key => key.includes("auth-token") || key.includes("supabase.auth"));
+				for (const key of supabaseKeys) {
+					await AsyncStorage.removeItem(key);
+				}
+			} catch (e) {
+				console.error("Error clearing AsyncStorage keys:", e);
+			}
+		};
+
 		// Check active sessions
 		supabase.auth.getSession().then(async ({ data, error }) => {
 			if (error) {
 				console.warn("Session retrieval error:", error);
 				if (error.message && (error.message.includes("Refresh Token") || error.message.includes("Invalid Refresh Token"))) {
 					try {
+						await clearSupabaseKeys();
 						await supabase.auth.signOut();
 					} catch (_) {}
 				}
@@ -78,6 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		}).catch(async (err) => {
 			console.error("Auth getSession unhandled error:", err);
 			try {
+				await clearSupabaseKeys();
 				await supabase.auth.signOut();
 			} catch (_) {}
 			setUser(null);

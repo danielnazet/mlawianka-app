@@ -380,7 +380,52 @@ export default function ChatScreen() {
 		return name.includes(searchQuery.toLowerCase());
 	});
 
+	const coachContacts = filteredContacts.filter((contact) => contact.role === "coach");
+	const otherContacts = filteredContacts.filter((contact) => contact.role !== "coach");
+
 	const showStaffCard = isStaff && staffConversationId && (!searchQuery || "sztab".includes(searchQuery.toLowerCase()));
+
+	const renderContactCard = (contact: ChatContact, isCoachHighlight = false) => (
+		<Card
+			key={contact.id}
+			style={[styles.userCard, isCoachHighlight && styles.coachCard]}
+			onPress={() => openDirectChat(contact)}
+			disabled={openingChatId !== null}
+		>
+			<Card.Content style={styles.userCardContent}>
+				{contact.avatar_url ? (
+					<Avatar.Image
+						size={48}
+						source={{ uri: contact.avatar_url }}
+						style={styles.avatar}
+					/>
+				) : (
+					<Avatar.Text
+						size={48}
+						label={getInitials(contact)}
+						style={isCoachHighlight ? styles.coachAvatar : styles.avatar}
+						labelStyle={styles.avatarLabel}
+					/>
+				)}
+				<View style={styles.userCardInfo}>
+					<Text style={styles.userName}>{getContactName(contact)}</Text>
+					<Text style={styles.userRole}>
+						{[roleLabels[contact.role], contact.team_name].filter(Boolean).join(" • ")}
+					</Text>
+				</View>
+				{unreadChatsMap[contact.id] > 0 && (
+					<View style={styles.badgeContainer}>
+						<Text style={styles.badgeText}>{unreadChatsMap[contact.id]}</Text>
+					</View>
+				)}
+				{openingChatId === contact.id ? (
+					<ActivityIndicator color={COLORS.primary} />
+				) : (
+					<IconButton icon="chevron-right" iconColor={COLORS.textLight} />
+				)}
+			</Card.Content>
+		</Card>
+	);
 
 	return (
 		<ImageBackground
@@ -437,68 +482,56 @@ export default function ChatScreen() {
 					</>
 				) : null}
 
-				<Text style={styles.sectionTitle}>
-					{isStaff ? "Rozmowy indywidualne" : "Osoby kontaktowe"}
-				</Text>
+				{profile?.role === "admin" ? (
+					<>
+						<Text style={styles.sectionTitle}>Trenerzy</Text>
+						{coachContacts.length === 0 ? (
+							<View style={styles.emptyContactsSub}>
+								<Text style={styles.emptyTextSub}>
+									{searchQuery ? `Brak trenerów pasujących do "${searchQuery}".` : "Brak zarejestrowanych trenerów."}
+								</Text>
+							</View>
+						) : (
+							coachContacts.map((contact) => renderContactCard(contact, true))
+						)}
 
-				{contacts.length === 0 ? (
-					<View style={styles.emptyContacts}>
-						<Avatar.Icon size={56} icon="account-search-outline" style={styles.emptyAvatar} />
-						<Text style={styles.emptyTitle}>Brak dostępnych kontaktów</Text>
-						<Text style={styles.emptyText}>
-							Sprawdź przypisanie drużyny i trenera w panelu administratora.
-						</Text>
-					</View>
-				) : filteredContacts.length === 0 ? (
-					<View style={styles.emptyContacts}>
-						<Avatar.Icon size={56} icon="account-search-outline" style={styles.emptyAvatar} />
-						<Text style={styles.emptyTitle}>Brak wyników</Text>
-						<Text style={styles.emptyText}>
-							Nie znaleziono kontaktu pasującego do wyszukiwania "{searchQuery}".
-						</Text>
-					</View>
+						<Text style={styles.sectionTitle}>Pozostałe kontakty</Text>
+						{otherContacts.length === 0 ? (
+							<View style={styles.emptyContactsSub}>
+								<Text style={styles.emptyTextSub}>
+									{searchQuery ? `Brak innych kontaktów pasujących do "${searchQuery}".` : "Brak pozostałych kontaktów."}
+								</Text>
+							</View>
+						) : (
+							otherContacts.map((contact) => renderContactCard(contact, false))
+						)}
+					</>
 				) : (
-					filteredContacts.map((contact) => (
-						<Card
-							key={contact.id}
-							style={styles.userCard}
-							onPress={() => openDirectChat(contact)}
-							disabled={openingChatId !== null}
-						>
-							<Card.Content style={styles.userCardContent}>
-								{contact.avatar_url ? (
-									<Avatar.Image
-										size={48}
-										source={{ uri: contact.avatar_url }}
-										style={styles.avatar}
-									/>
-								) : (
-									<Avatar.Text
-										size={48}
-										label={getInitials(contact)}
-										style={styles.avatar}
-										labelStyle={styles.avatarLabel}
-									/>
-								)}
-								<View style={styles.userCardInfo}>
-									<Text style={styles.userName}>{getContactName(contact)}</Text>
-									<Text style={styles.userRole}>
-										{[roleLabels[contact.role], contact.team_name].filter(Boolean).join(" • ")}
-									</Text>
-								</View>
-								{unreadChatsMap[contact.id] > 0 && (
-									<View style={styles.badgeContainer}>
-										<Text style={styles.badgeText}>{unreadChatsMap[contact.id]}</Text>
-									</View>
-								)}
-								{openingChatId === contact.id ? (
-									<ActivityIndicator color={COLORS.primary} />
-								) : (
-									<IconButton icon="chevron-right" iconColor={COLORS.textLight} />
-								)}
-							</Card.Content>
-						</Card>
-					))
+					<>
+						<Text style={styles.sectionTitle}>
+							{isStaff ? "Rozmowy indywidualne" : "Osoby kontaktowe"}
+						</Text>
+
+						{contacts.length === 0 ? (
+							<View style={styles.emptyContacts}>
+								<Avatar.Icon size={56} icon="account-search-outline" style={styles.emptyAvatar} />
+								<Text style={styles.emptyTitle}>Brak dostępnych kontaktów</Text>
+								<Text style={styles.emptyText}>
+									Sprawdź przypisanie drużyny i trenera w panelu administratora.
+								</Text>
+							</View>
+						) : filteredContacts.length === 0 ? (
+							<View style={styles.emptyContacts}>
+								<Avatar.Icon size={56} icon="account-search-outline" style={styles.emptyAvatar} />
+								<Text style={styles.emptyTitle}>Brak wyników</Text>
+								<Text style={styles.emptyText}>
+									Nie znaleziono kontaktu pasującego do wyszukiwania "{searchQuery}".
+								</Text>
+							</View>
+						) : (
+							filteredContacts.map((contact) => renderContactCard(contact, false))
+						)}
+					</>
 				)}
 			</ScrollView>
 
@@ -650,5 +683,31 @@ const styles = StyleSheet.create({
 		color: COLORS.white,
 		fontSize: 11,
 		fontFamily: FONTS.bold,
+	},
+	coachCard: {
+		backgroundColor: COLORS.white,
+		borderColor: COLORS.primaryLight,
+		borderLeftWidth: 4,
+		borderLeftColor: COLORS.primary,
+		marginBottom: 10,
+		elevation: 1,
+	},
+	coachAvatar: {
+		backgroundColor: COLORS.primary,
+	},
+	emptyContactsSub: {
+		alignItems: "center",
+		backgroundColor: COLORS.white,
+		borderColor: COLORS.border,
+		borderRadius: 12,
+		borderWidth: 1,
+		padding: 16,
+		marginBottom: 10,
+	},
+	emptyTextSub: {
+		color: COLORS.textLight,
+		fontSize: 13,
+		fontFamily: FONTS.regular,
+		textAlign: "center",
 	},
 });

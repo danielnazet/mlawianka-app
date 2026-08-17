@@ -232,6 +232,14 @@ export default function ManageCoachesScreen() {
 			if (signUpError) throw signUpError;
 			if (!signUpData.user) throw new Error("Brak danych użytkownika po rejestracji");
 
+			// Automatycznie aktywujemy e-mail nowego trenera w bazie (bez potrzeby klikania linku)
+			const { error: confirmError } = await supabase.rpc("confirm_user_email", {
+				p_user_id: signUpData.user.id,
+			});
+			if (confirmError) {
+				console.warn("Wystąpił ostrzegawczy błąd auto-potwierdzenia emaila:", confirmError);
+			}
+
 			// Aktualizujemy avatar w profiles
 			const { error: profileUpdateError } = await supabase
 				.from("profiles")
@@ -249,7 +257,7 @@ export default function ManageCoachesScreen() {
 			setCoachPassword("");
 			setCoachAvatarUri(null);
 			
-			Alert.alert("Sukces", "Trener został zarejestrowany. Na podany adres wysłano e-mail aktywacyjny.");
+			Alert.alert("Sukces", "Trener został zarejestrowany. Konto jest od razu aktywne (potwierdzenie mailowe zostało wyłączone).");
 			loadData();
 		} catch (err: any) {
 			console.error("Error creating coach:", err);
