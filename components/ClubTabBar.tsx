@@ -128,7 +128,7 @@ function TabButton({
         <Ionicons
           name={focused ? activeIcon : inactiveIcon}
           size={23}
-          color={focused ? COLORS.white : "#bfdbfe"}
+          color={focused ? COLORS.primary : "#64748b"}
         />
 
         {badge ? (
@@ -340,9 +340,9 @@ const styles = StyleSheet.create({
 
     borderRadius: 34,
     borderWidth: 1.4,
-    borderColor: COLORS.primary,
+    borderColor: "#E5E7EB",
 
-    backgroundColor: COLORS.primaryDark,
+    backgroundColor: "#F9FAFB",
     overflow: "hidden",
   },
 
@@ -360,10 +360,10 @@ const styles = StyleSheet.create({
 
     borderRadius: 30,
 
-    backgroundColor: COLORS.primary,
+    backgroundColor: "#E5E7EB",
 
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: "#D1D5DB",
   },
 
   tabButton: {
@@ -388,7 +388,7 @@ const styles = StyleSheet.create({
   label: {
     maxWidth: "100%",
 
-    color: "#bfdbfe",
+    color: "#64748b",
     fontSize: 9.5,
     lineHeight: 12,
     fontWeight: "600",
@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
   },
 
   focusedLabel: {
-    color: COLORS.white,
+    color: COLORS.primary,
     fontWeight: "700",
   },
 

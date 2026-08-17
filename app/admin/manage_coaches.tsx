@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, ScrollView, ActivityIndicator, Pressable, Alert } from "react-native";
+import { View, StyleSheet, ScrollView, ActivityIndicator, Pressable, Alert, Platform } from "react-native";
 import { Card, Title, Button, Text, Avatar, Portal, Dialog, TextInput, IconButton } from "react-native-paper";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from "expo-image-picker";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import { decode } from "base64-arraybuffer";
 import { createClient } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
 import { COLORS } from "../../css/colors";
 import { FONTS } from "../../css/fonts";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface Team {
 	id: number;
@@ -31,6 +32,7 @@ interface CoachProfile {
 
 export default function ManageCoachesScreen() {
 	const { profile } = useAuth();
+	const insets = useSafeAreaInsets();
 	const [coaches, setCoaches] = useState<CoachProfile[]>([]);
 	const [teams, setTeams] = useState<Team[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -113,10 +115,19 @@ export default function ManageCoachesScreen() {
 	};
 
 	const uploadAvatar = async (uri: string): Promise<string> => {
-		const base64 = await FileSystem.readAsStringAsync(uri, {
-			encoding: "base64",
-		});
-		const arrayBuffer = decode(base64);
+		let arrayBuffer: ArrayBuffer;
+
+		if (Platform.OS === "web") {
+			const response = await fetch(uri);
+			const blob = await response.blob();
+			arrayBuffer = await blob.arrayBuffer();
+		} else {
+			const base64 = await FileSystem.readAsStringAsync(uri, {
+				encoding: "base64",
+			});
+			arrayBuffer = decode(base64);
+		}
+
 		const fileExt = uri.split('.').pop() || 'jpg';
 		const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
 
@@ -308,9 +319,9 @@ export default function ManageCoachesScreen() {
 				colors={[COLORS.primaryDark, COLORS.primary]}
 				start={{ x: 0, y: 0.5 }}
 				end={{ x: 1, y: 0.5 }}
-				style={styles.headerBar}
+				style={[styles.headerBar, { paddingTop: insets.top + 10, paddingBottom: 10 }]}
 			>
-				<IconButton icon="arrow-left" iconColor={COLORS.white} onPress={() => router.back()} />
+				<IconButton icon="arrow-left" iconColor={COLORS.white} onPress={() => { if (router.canGoBack()) { router.back(); } else { router.replace("/profile"); } }} />
 				<Title style={styles.headerTitle}>Zarządzanie Trenerami</Title>
 			</LinearGradient>
 

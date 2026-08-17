@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, FlatList, ActivityIndicator, RefreshControl, Dimensions, ImageBackground, ScrollView, TouchableOpacity, Image, Alert, Animated } from "react-native";
+import { View, FlatList, ActivityIndicator, RefreshControl, Dimensions, ImageBackground, ScrollView, TouchableOpacity, Image, Alert, Animated, Platform } from "react-native";
 import { styles } from "../../css/news";
 import { Card, Title, Paragraph, Text, Button, SegmentedButtons, Portal, Dialog, FAB, TextInput, Switch } from "react-native-paper";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -173,13 +173,18 @@ export default function NewsScreen() {
 	};
 
 	const uploadImage = async (uri: string): Promise<string> => {
-		// Wczytywanie pliku jako ciąg Base64 za pomocą expo-file-system (unikamy pustych blobów fetch w React Native)
-		const base64 = await FileSystem.readAsStringAsync(uri, {
-			encoding: "base64",
-		});
-		
-		// Dekodowanie Base64 do ArrayBuffer
-		const arrayBuffer = decode(base64);
+		let arrayBuffer: ArrayBuffer;
+
+		if (Platform.OS === "web") {
+			const response = await fetch(uri);
+			const blob = await response.blob();
+			arrayBuffer = await blob.arrayBuffer();
+		} else {
+			const base64 = await FileSystem.readAsStringAsync(uri, {
+				encoding: "base64",
+			});
+			arrayBuffer = decode(base64);
+		}
 		
 		const fileExt = uri.split('.').pop() || 'jpg';
 		const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
@@ -361,7 +366,8 @@ export default function NewsScreen() {
 	const fetchData = async () => {
 		try {
 			setLoading(true);
-			// Pobierz aktualności (najważniejsze pierwsze, potem według daty)
+			
+			// 1. Pobierz aktualności (najważniejsze pierwsze, potem według daty)
 			const { data: newsData, error: newsError } = await supabase
 				.from("news")
 				.select("*")
@@ -371,7 +377,16 @@ export default function NewsScreen() {
 			if (newsError) throw newsError;
 			setNews(newsData || []);
 
-			// Pobierz ogłoszenia (tylko dla zalogowanych)
+			// 2. Pobierz zespoły (do wysyłki komunikatów do grup)
+			const { data: teamsData, error: teamsError } = await supabase
+				.from("teams")
+				.select("id, name, coach_id")
+				.eq("is_active", true);
+
+			if (teamsError) throw teamsError;
+			setTeams(teamsData || []);
+
+			// 3. Pobierz ogłoszenia (tylko dla zalogowanych)
 			if (user) {
 				let query = supabase
 					.from("announcements")
@@ -405,6 +420,16 @@ export default function NewsScreen() {
 		}
 		fetchData();
 	}, [user, profile]);
+
+	const getVisibleTeamsForAnnouncement = () => {
+		if (profile?.role === "admin") {
+			return teams;
+		}
+		if (profile?.role === "coach") {
+			return teams.filter(t => t.coach_id === user?.id);
+		}
+		return [];
+	};
 
 	const onRefresh = () => {
 		setRefreshing(true);
@@ -852,38 +877,46 @@ export default function NewsScreen() {
 								left={<TextInput.Icon icon="text-subject" color={COLORS.textLight} />}
 							/>
 							
-							{profile?.role === "admin" && (
+							{(profile?.role === "admin" || profile?.role === "coach") && (
 								<View style={styles.pickerContainer}>
 									<Text style={styles.pickerLabel}>Odbiorcy (Zespół):</Text>
-									<ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.teamChipsScroll}>
-										<TouchableOpacity
-											style={[
-												styles.teamChip,
-												!announcementTeamId && styles.teamChipActive
-											]}
-											onPress={() => setAnnouncementTeamId("")}
-										>
-											<Text style={[
-												styles.teamChipText,
-												!announcementTeamId && styles.teamChipTextActive
-											]}>Wszyscy</Text>
-										</TouchableOpacity>
-										{teams.map(t => (
-											<TouchableOpacity
-												key={t.id}
-												style={[
-													styles.teamChip,
-													announcementTeamId === t.id.toString() && styles.teamChipActive
-												]}
-												onPress={() => setAnnouncementTeamId(t.id.toString())}
-											>
-												<Text style={[
-													styles.teamChipText,
-													announcementTeamId === t.id.toString() && styles.teamChipTextActive
-												]}>{t.name}</Text>
-											</TouchableOpacity>
-										))}
-									</ScrollView>
+									{profile?.role === "coach" && getVisibleTeamsForAnnouncement().length === 0 ? (
+										<Text style={{ color: COLORS.error, fontSize: 13, fontFamily: FONTS.bold, marginTop: 4 }}>
+											Brak przypisanych grup. Skontaktuj się z administratorem.
+										</Text>
+									) : (
+										<ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.teamChipsScroll}>
+											{profile?.role === "admin" && (
+												<TouchableOpacity
+													style={[
+														styles.teamChip,
+														!announcementTeamId && styles.teamChipActive
+													]}
+													onPress={() => setAnnouncementTeamId("")}
+												>
+													<Text style={[
+														styles.teamChipText,
+														!announcementTeamId && styles.teamChipTextActive
+													]}>Wszyscy</Text>
+												</TouchableOpacity>
+											)}
+											{getVisibleTeamsForAnnouncement().map(t => (
+												<TouchableOpacity
+													key={t.id}
+													style={[
+														styles.teamChip,
+														announcementTeamId === t.id.toString() && styles.teamChipActive
+													]}
+													onPress={() => setAnnouncementTeamId(t.id.toString())}
+												>
+													<Text style={[
+														styles.teamChipText,
+														announcementTeamId === t.id.toString() && styles.teamChipTextActive
+													]}>{t.name}</Text>
+												</TouchableOpacity>
+											))}
+										</ScrollView>
+									)}
 								</View>
 							)}
 						</ScrollView>
@@ -920,9 +953,14 @@ export default function NewsScreen() {
 						if (activeTab === "news") {
 							setIsAddNewsVisible(true);
 						} else {
-							// Jeśli coach, przypisz automatycznie jego team_id
+							// Jeśli coach, przypisz automatycznie jego pierwszy prowadzony team_id
 							if (profile?.role === "coach") {
-								setAnnouncementTeamId(profile.team_id?.toString() || "");
+								const coachTeamsList = teams.filter(t => t.coach_id === user?.id);
+								if (coachTeamsList.length > 0) {
+									setAnnouncementTeamId(coachTeamsList[0].id.toString());
+								} else {
+									setAnnouncementTeamId("");
+								}
 							}
 							setIsAddAnnouncementVisible(true);
 						}

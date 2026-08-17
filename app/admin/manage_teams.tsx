@@ -8,6 +8,7 @@ import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
 import { COLORS } from "../../css/colors";
 import { FONTS } from "../../css/fonts";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface Coach {
 	id: string;
@@ -28,6 +29,7 @@ interface Team {
 
 export default function ManageTeamsScreen() {
 	const { profile } = useAuth();
+	const insets = useSafeAreaInsets();
 	const [teams, setTeams] = useState<Team[]>([]);
 	const [coaches, setCoaches] = useState<Coach[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -246,9 +248,9 @@ export default function ManageTeamsScreen() {
 				colors={[COLORS.primaryDark, COLORS.primary]}
 				start={{ x: 0, y: 0.5 }}
 				end={{ x: 1, y: 0.5 }}
-				style={styles.headerBar}
+				style={[styles.headerBar, { paddingTop: insets.top + 10, paddingBottom: 10 }]}
 			>
-				<IconButton icon="arrow-left" iconColor={COLORS.white} onPress={() => router.back()} />
+				<IconButton icon="arrow-left" iconColor={COLORS.white} onPress={() => { if (router.canGoBack()) { router.back(); } else { router.replace("/profile"); } }} />
 				<Title style={styles.headerTitle}>Zarządzanie Zespołami</Title>
 			</LinearGradient>
 

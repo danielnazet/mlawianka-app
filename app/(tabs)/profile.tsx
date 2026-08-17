@@ -644,6 +644,31 @@ export default function ProfileScreen() {
                   style={styles.adminTileArrow}
                 />
               </Pressable>
+              <Pressable
+                onPress={() => router.push("/admin/manage_members")}
+                style={({ pressed }) => [
+                  styles.adminTile,
+                  pressed && styles.adminTilePressed,
+                ]}
+              >
+                <View style={styles.adminTileIcon}>
+                  <MaterialCommunityIcons
+                    name="account-group"
+                    size={27}
+                    color={COLORS.primary}
+                  />
+                </View>
+                <Text style={styles.adminTileTitle}>Członkowie</Text>
+                <Text style={styles.adminTileDescription}>
+                  Zarządzaj zawodnikami i rodzicami
+                </Text>
+                <MaterialCommunityIcons
+                  name="chevron-right"
+                  size={22}
+                  color={COLORS.textLight}
+                  style={styles.adminTileArrow}
+                />
+              </Pressable>
             </View>
           </View>
         )}
