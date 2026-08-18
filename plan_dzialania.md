@@ -6,6 +6,8 @@ Rejestracja brak buttona na powrot oraz nawigacji
 dla gosci terminarz tab rowniez jest zbedny zamiast tego moze trzeba zrobic jakies api zeby sciagal tabele liga pierwszego zespolu?
 
 
+ok a [booking.tsx](file;file:///d%3A/Nowy%20folder/mlawianka-app/app/%28tabs%29/booking.tsx) orlik co
+
 # Plan Działania (Roadmap) – Aplikacja Mlawianka
 
 Ten dokument przedstawia podsumowanie wykonanych prac oraz plan dalszego rozwoju aplikacji uzgodniony podczas dzisiejszych prac.
