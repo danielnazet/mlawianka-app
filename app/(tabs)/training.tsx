@@ -3,6 +3,7 @@ import { View, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, ImageB
 import { Card, Title, Paragraph, Text, Button, Portal, Dialog, TextInput, RadioButton, HelperText, Switch } from "react-native-paper";
 import { router } from "expo-router";
 import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
+import DateTimePickerModal from "react-native-modal-datetime-picker";
 import Swipeable from "react-native-gesture-handler/Swipeable";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
@@ -22,6 +23,19 @@ export default function TrainingScreen() {
 
 	// Stan dla formularza dodawania/edycji wydarzenia
 	const [dialogVisible, setDialogVisible] = useState(false);
+	const [formTeamModalVisible, setFormTeamModalVisible] = useState(false);
+	const [weekdaysModalVisible, setWeekdaysModalVisible] = useState(false);
+	const [periodModalVisible, setPeriodModalVisible] = useState(false);
+	const [locationModalVisible, setLocationModalVisible] = useState(false);
+	const [isCustomLocation, setIsCustomLocation] = useState(false);
+	const [isMatchDatePickerVisible, setMatchDatePickerVisible] = useState(false);
+	const [isTrainingDatePickerVisible, setTrainingDatePickerVisible] = useState(false);
+	const [isStartTimePickerVisible, setStartTimePickerVisible] = useState(false);
+	const [isEndTimePickerVisible, setEndTimePickerVisible] = useState(false);
+	const [cyclicStartTime, setCyclicStartTime] = useState("17:00");
+	const [cyclicEndTime, setCyclicEndTime] = useState("18:30");
+	const [showPastTrainings, setShowPastTrainings] = useState(false);
+	const [showPastMatches, setShowPastMatches] = useState(false);
 	const [editEventId, setEditEventId] = useState<number | null>(null);
 	const [eventType, setEventType] = useState<"training" | "match">("training");
 	const [formTitle, setFormTitle] = useState("");
@@ -139,12 +153,28 @@ export default function TrainingScreen() {
 					}
 				}
 
+				// Wyznacz zespół Seniorów
+				const { data: allTeams } = await supabase.from("teams").select("id, name");
+				const seniorTeam = (allTeams || []).find((t) => {
+					const n = t.name.toLowerCase();
+					return n.includes("senior") || n.includes("pierwszy") || n.includes("i zespół");
+				}) || allTeams?.[0];
+				const seniorTeamId = seniorTeam ? seniorTeam.id : null;
+
 				if (userTeamId) {
 					trainingQuery = trainingQuery.or(`team_id.is.null,team_id.eq.${userTeamId}`);
-					matchQuery = matchQuery.eq("team_id", userTeamId);
+					if (seniorTeamId && seniorTeamId !== userTeamId) {
+						matchQuery = matchQuery.or(`team_id.is.null,team_id.eq.${userTeamId},team_id.eq.${seniorTeamId}`);
+					} else {
+						matchQuery = matchQuery.or(`team_id.is.null,team_id.eq.${userTeamId}`);
+					}
 				} else {
 					trainingQuery = trainingQuery.is("team_id", null);
-					matchQuery = matchQuery.eq("team_id", -1);
+					if (seniorTeamId) {
+						matchQuery = matchQuery.or(`team_id.is.null,team_id.eq.${seniorTeamId}`);
+					} else {
+						matchQuery = matchQuery.is("team_id", null);
+					}
 				}
 			}
 
@@ -173,15 +203,197 @@ export default function TrainingScreen() {
 		fetchData();
 	};
 
+	const sortTeamsOrdered = (teamsList: Team[]) => {
+		return [...teamsList].sort((a, b) => {
+			const nameA = a.name.toLowerCase();
+			const nameB = b.name.toLowerCase();
+
+			const isSeniorA = nameA.includes("senior") || nameA.includes("pierwszy") || nameA.includes("i zespół");
+			const isSeniorB = nameB.includes("senior") || nameB.includes("pierwszy") || nameB.includes("i zespół");
+			if (isSeniorA && !isSeniorB) return -1;
+			if (!isSeniorA && isSeniorB) return 1;
+
+			const matchA = nameA.match(/u-?(\d+)/i);
+			const matchB = nameB.match(/u-?(\d+)/i);
+
+			if (matchA && matchB) {
+				return parseInt(matchB[1]) - parseInt(matchA[1]);
+			}
+			if (matchA && !matchB) return -1;
+			if (!matchA && matchB) return 1;
+
+			return nameA.localeCompare(nameB, "pl");
+		});
+	};
+
+	const getVisibleTeamsForForm = () => {
+		if (profile?.role === "admin") {
+			return sortTeamsOrdered(teams);
+		}
+		if (profile?.role === "coach") {
+			const coachTeams = teams.filter((t) => t.coach_id === user?.id || (profile.team_id && t.id === profile.team_id));
+			return sortTeamsOrdered(coachTeams.length > 0 ? coachTeams : teams);
+		}
+		return sortTeamsOrdered(teams);
+	};
+
+	const CLUB_LOCATIONS = [
+		{
+			id: "stadion",
+			name: "Stadion Miejski w Strzegowie",
+			address: "Stadion Miejski, ul. Sportowa 4, 06-540 Strzegowo",
+			icon: "stadium",
+		},
+		{
+			id: "orlik_1",
+			name: "Orlik nr 1 przy SP",
+			address: "Orlik nr 1, ul. Wojska Polskiego 1, 06-540 Strzegowo",
+			icon: "soccer-field",
+		},
+		{
+			id: "orlik_2",
+			name: "Orlik Gminny (Parkowa)",
+			address: "Orlik Gminny, ul. Parkowa 2, 06-540 Strzegowo",
+			icon: "soccer-field",
+		},
+		{
+			id: "hala",
+			name: "Hala Sportowa przy SP",
+			address: "Hala Sportowa, ul. Wojska Polskiego 1, 06-540 Strzegowo",
+			icon: "stadium-variant",
+		},
+		{
+			id: "wyjazd",
+			name: "Mecz wyjazdowy / Inny adres",
+			address: "",
+			icon: "map-marker-outline",
+		},
+	];
+
+	const parseEventDate = (event: any, type: "training" | "match"): Date | null => {
+		if (type === "match") {
+			if (!event.match_date) return null;
+			return new Date(event.match_date);
+		}
+		if (!event.time) return null;
+		const match = event.time.match(/(\d{2})[.\/](\d{2})[.\/](\d{4})/);
+		if (match) {
+			const [_, day, month, year] = match;
+			const timeMatch = event.time.match(/(\d{2}):(\d{2})/);
+			const hours = timeMatch ? parseInt(timeMatch[1]) : 12;
+			const mins = timeMatch ? parseInt(timeMatch[2]) : 0;
+			return new Date(parseInt(year), parseInt(month) - 1, parseInt(day), hours, mins);
+		}
+		return null;
+	};
+
+	const processEvents = (eventsList: any[], type: "training" | "match") => {
+		const now = new Date();
+		now.setHours(0, 0, 0, 0);
+
+		const upcoming: { event: any; date: Date | null }[] = [];
+		const past: { event: any; date: Date | null }[] = [];
+
+		eventsList.forEach((e) => {
+			const d = parseEventDate(e, type);
+			if (!d) {
+				upcoming.push({ event: e, date: null });
+			} else if (d >= now) {
+				upcoming.push({ event: e, date: d });
+			} else {
+				past.push({ event: e, date: d });
+			}
+		});
+
+		upcoming.sort((a, b) => {
+			if (!a.date) return 1;
+			if (!b.date) return -1;
+			return a.date.getTime() - b.date.getTime();
+		});
+
+		past.sort((a, b) => {
+			if (!a.date) return 1;
+			if (!b.date) return -1;
+			return b.date.getTime() - a.date.getTime();
+		});
+
+		return { upcoming, past };
+	};
+
+	const roundTo30Minutes = (date: Date) => {
+		const minutes = date.getMinutes();
+		const roundedMinutes = minutes < 15 ? 0 : minutes < 45 ? 30 : 0;
+		if (minutes >= 45) {
+			date.setHours(date.getHours() + 1);
+		}
+		date.setMinutes(roundedMinutes);
+		return date;
+	};
+
+	const formatMinutes = (date: Date) => {
+		const minutes = date.getMinutes();
+		return minutes < 15 || minutes >= 45 ? "00" : "30";
+	};
+
+	const handleConfirmMatchDate = (rawDate: Date) => {
+		setMatchDatePickerVisible(false);
+		const date = roundTo30Minutes(rawDate);
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, "0");
+		const day = String(date.getDate()).padStart(2, "0");
+		const hours = String(date.getHours()).padStart(2, "0");
+		const mins = formatMinutes(date);
+		setFormDate(`${year}-${month}-${day} ${hours}:${mins}`);
+	};
+
+	const handleConfirmTrainingDate = (rawDate: Date) => {
+		setTrainingDatePickerVisible(false);
+		const date = roundTo30Minutes(rawDate);
+		const dayNames = ["Niedziela", "Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota"];
+		const monthNames = [
+			"stycznia", "lutego", "marca", "kwietnia", "maja", "czerwca",
+			"lipca", "sierpnia", "września", "października", "listopada", "grudnia"
+		];
+		const dayName = dayNames[date.getDay()];
+		const day = date.getDate();
+		const monthName = monthNames[date.getMonth()];
+		const hours = String(date.getHours()).padStart(2, "0");
+		const mins = formatMinutes(date);
+		setFormTime(`${dayName}, ${day} ${monthName} ${hours}:${mins}`);
+	};
+
+	const handleConfirmStartTime = (rawDate: Date) => {
+		setStartTimePickerVisible(false);
+		const date = roundTo30Minutes(rawDate);
+		const hours = String(date.getHours()).padStart(2, "0");
+		const mins = formatMinutes(date);
+		const start = `${hours}:${mins}`;
+		setCyclicStartTime(start);
+		setFormTimeHours(`${start}-${cyclicEndTime}`);
+	};
+
+	const handleConfirmEndTime = (rawDate: Date) => {
+		setEndTimePickerVisible(false);
+		const date = roundTo30Minutes(rawDate);
+		const hours = String(date.getHours()).padStart(2, "0");
+		const mins = formatMinutes(date);
+		const end = `${hours}:${mins}`;
+		setCyclicEndTime(end);
+		setFormTimeHours(`${cyclicStartTime}-${end}`);
+	};
+
 	const openAddDialog = () => {
+		const visibleFormTeams = getVisibleTeamsForForm();
 		setEditEventId(null);
+		setEventType("training");
 		setFormTitle("");
 		setFormDescription("");
 		setFormCoach(profile ? `${profile.first_name} ${profile.last_name}` : "");
 		setFormTime("");
-		setFormLocation("");
+		setFormLocation(CLUB_LOCATIONS[1].address);
+		setIsCustomLocation(false);
 		setFormMaxCapacity("15");
-		setFormTeamId(teams[0]?.id?.toString() || "");
+		setFormTeamId(visibleFormTeams[0]?.id?.toString() || "");
 		setFormOpponent("");
 		setFormDate("");
 		setFormResult("");
@@ -189,7 +401,9 @@ export default function TrainingScreen() {
 		setIsCyclic(false);
 		setSelectedWeekdays([]);
 		setRecurrenceMonths(3);
-		setFormTimeHours("");
+		setFormTimeHours("17:00-18:30");
+		setCyclicStartTime("17:00");
+		setCyclicEndTime("18:30");
 		setDialogVisible(true);
 	};
 
@@ -251,7 +465,7 @@ export default function TrainingScreen() {
 		return dates;
 	};
 
-	const handleAddEvent = async () => {
+	const handleAddOrEditEvent = async () => {
 		if (!formTeamId) {
 			setFormError("Proszę wybrać zespół.");
 			return;
@@ -526,164 +740,288 @@ export default function TrainingScreen() {
 						</Card>
 					)}
 
-					{user && activeTab === "trainings" ? (
-						trainings.length === 0 ? (
-							<View style={styles.emptyContainer}>
-								<Text style={styles.emptyText}>Brak zaplanowanych treningów.</Text>
-							</View>
-						) : (
-							trainings.map((training) => {
-								let swipeableRef: Swipeable | null = null;
-								const renderRightActions = () => (
-									<View style={styles.swipeActionsContainer}>
-										<TouchableOpacity
-											style={[styles.swipeActionBtn, styles.editActionBtn]}
-											onPress={() => {
-												swipeableRef?.close();
-												openEditDialog(training, "training");
-											}}
-										>
-											<MaterialIcons name="edit" size={22} color={COLORS.white} />
-											<Text style={styles.swipeActionText}>Edytuj</Text>
-										</TouchableOpacity>
-										<TouchableOpacity
-											style={[styles.swipeActionBtn, styles.deleteActionBtn]}
-											onPress={() => {
-												swipeableRef?.close();
-												confirmDeleteEvent(training.id, "training");
-											}}
-										>
-											<MaterialIcons name="delete" size={22} color={COLORS.white} />
-											<Text style={styles.swipeActionText}>Usuń</Text>
-										</TouchableOpacity>
-									</View>
-								);
+					{user && activeTab === "trainings" ? (() => {
+						const { upcoming, past } = processEvents(trainings, "training");
+						if (upcoming.length === 0 && past.length === 0) {
+							return (
+								<View style={styles.emptyContainer}>
+									<Text style={styles.emptyText}>Brak zaplanowanych treningów.</Text>
+								</View>
+							);
+						}
 
-								const cardContent = (
-									<Card style={styles.card}>
-										<Card.Content>
-											<View style={styles.cardHeader}>
-												<Title style={styles.title}>{training.title}</Title>
-												<Text style={styles.groupBadge}>{getTeamName(training.team_id)}</Text>
-											</View>
-											{training.description ? (
-												<Paragraph style={styles.description}>
-													{training.description}
-												</Paragraph>
-											) : null}
-											<View style={styles.infoRow}>
-												<Text style={styles.infoLabel}>Trener:</Text>
-												<Text style={styles.infoValue}>{training.coach}</Text>
-											</View>
-											<View style={styles.infoRow}>
-												<Text style={styles.infoLabel}>Termin:</Text>
-												<Text style={styles.infoValue}>{training.time}</Text>
-											</View>
-											<View style={styles.infoRow}>
-												<Text style={styles.infoLabel}>Miejsce:</Text>
-												<Text style={styles.infoValue}>{training.location}</Text>
-											</View>
-										</Card.Content>
-									</Card>
-								);
-
-								if (isCoachOrAdmin) {
-									return (
-										<View key={training.id} style={{ marginBottom: 16 }}>
-											<Swipeable
-												ref={ref => { swipeableRef = ref; }}
-												renderRightActions={renderRightActions}
-												friction={2}
-												rightThreshold={40}
+						return (
+							<View>
+								{/* Sekcja Nadchodzących Treningów */}
+								{upcoming.map((item, index) => {
+									const training = item.event;
+									const isHero = index === 0;
+									let swipeableRef: Swipeable | null = null;
+									const renderRightActions = () => (
+										<View style={styles.swipeActionsContainer}>
+											<TouchableOpacity
+												style={[styles.swipeActionBtn, styles.editActionBtn]}
+												onPress={() => {
+													swipeableRef?.close();
+													openEditDialog(training, "training");
+												}}
 											>
-												<View style={{ marginBottom: -16, overflow: "hidden" }}>
-													{cardContent}
-												</View>
-											</Swipeable>
+												<MaterialIcons name="edit" size={22} color={COLORS.white} />
+												<Text style={styles.swipeActionText}>Edytuj</Text>
+											</TouchableOpacity>
+											<TouchableOpacity
+												style={[styles.swipeActionBtn, styles.deleteActionBtn]}
+												onPress={() => {
+													swipeableRef?.close();
+													confirmDeleteEvent(training.id, "training");
+												}}
+											>
+												<MaterialIcons name="delete" size={22} color={COLORS.white} />
+												<Text style={styles.swipeActionText}>Usuń</Text>
+											</TouchableOpacity>
 										</View>
 									);
-								}
-								return <View key={training.id}>{cardContent}</View>;
-							})
-						)
-					) : (
-						matches.length === 0 ? (
-							<View style={styles.emptyContainer}>
-								<Text style={styles.emptyText}>Brak zaplanowanych meczów.</Text>
-							</View>
-						) : (
-							matches.map((match) => {
-								let swipeableRef: Swipeable | null = null;
-								const renderRightActions = () => (
-									<View style={styles.swipeActionsContainer}>
-										<TouchableOpacity
-											style={[styles.swipeActionBtn, styles.editActionBtn]}
-											onPress={() => {
-												swipeableRef?.close();
-												openEditDialog(match, "match");
-											}}
-										>
-											<MaterialIcons name="edit" size={22} color={COLORS.white} />
-											<Text style={styles.swipeActionText}>Edytuj</Text>
-										</TouchableOpacity>
-										<TouchableOpacity
-											style={[styles.swipeActionBtn, styles.deleteActionBtn]}
-											onPress={() => {
-												swipeableRef?.close();
-												confirmDeleteEvent(match.id, "match");
-											}}
-										>
-											<MaterialIcons name="delete" size={22} color={COLORS.white} />
-											<Text style={styles.swipeActionText}>Usuń</Text>
-										</TouchableOpacity>
-									</View>
-								);
 
-								const cardContent = (
-									<Card style={[styles.card, styles.matchCard]}>
-										<Card.Content>
-											<View style={styles.cardHeader}>
-												<Title style={styles.title}>GKS Strzegowo vs {match.opponent}</Title>
-												<Text style={styles.matchBadge}>{getTeamName(match.team_id)}</Text>
-											</View>
-											<View style={styles.infoRow}>
-												<Text style={styles.infoLabel}>Termin:</Text>
-												<Text style={styles.infoValue}>{formatDate(match.match_date)}</Text>
-											</View>
-											<View style={styles.infoRow}>
-												<Text style={styles.infoLabel}>Miejsce:</Text>
-												<Text style={styles.infoValue}>{match.location}</Text>
-											</View>
-											<View style={styles.resultRow}>
-												<Text style={styles.resultLabel}>Wynik:</Text>
-												<Text style={styles.resultValue}>
-													{match.result ? match.result : "Nadchodzący"}
-												</Text>
-											</View>
-										</Card.Content>
-									</Card>
-								);
-
-								if (isCoachOrAdmin) {
-									return (
-										<View key={match.id} style={{ marginBottom: 16 }}>
-											<Swipeable
-												ref={ref => { swipeableRef = ref; }}
-												renderRightActions={renderRightActions}
-												friction={2}
-												rightThreshold={40}
-											>
-												<View style={{ marginBottom: -16, overflow: "hidden" }}>
-													{cardContent}
+									const cardContent = (
+										<Card style={[styles.card, isHero && styles.heroCard]}>
+											<Card.Content>
+												{isHero && (
+													<View style={styles.heroBadgeRow}>
+														<MaterialCommunityIcons name="lightning-bolt" size={16} color={COLORS.white} />
+														<Text style={styles.heroBadgeText}>NAJBLIŻSZY TRENING</Text>
+													</View>
+												)}
+												<View style={styles.cardHeader}>
+													<Title style={styles.title}>{training.title}</Title>
+													<Text style={styles.groupBadge}>{getTeamName(training.team_id)}</Text>
 												</View>
-											</Swipeable>
+												{training.description ? (
+													<Paragraph style={styles.description}>
+														{training.description}
+													</Paragraph>
+												) : null}
+												<View style={styles.infoRow}>
+													<Text style={styles.infoLabel}>Trener:</Text>
+													<Text style={styles.infoValue}>{training.coach}</Text>
+												</View>
+												<View style={styles.infoRow}>
+													<Text style={styles.infoLabel}>Termin:</Text>
+													<Text style={styles.infoValue}>{training.time}</Text>
+												</View>
+												<View style={styles.infoRow}>
+													<Text style={styles.infoLabel}>Miejsce:</Text>
+													<Text style={styles.infoValue}>{training.location}</Text>
+												</View>
+											</Card.Content>
+										</Card>
+									);
+
+									if (isCoachOrAdmin) {
+										return (
+											<View key={training.id} style={{ marginBottom: 16 }}>
+												<Swipeable
+													ref={ref => { swipeableRef = ref; }}
+													renderRightActions={renderRightActions}
+													friction={2}
+													rightThreshold={40}
+												>
+													<View style={{ marginBottom: -16, overflow: "hidden" }}>
+														{cardContent}
+													</View>
+												</Swipeable>
+											</View>
+										);
+									}
+									return <View key={training.id}>{cardContent}</View>;
+								})}
+
+								{/* Sekcja Archiwum Minionych Treningów */}
+								{past.length > 0 && (
+									<View style={styles.archiveSection}>
+										<TouchableOpacity
+											style={styles.archiveHeaderToggle}
+											activeOpacity={0.8}
+											onPress={() => setShowPastTrainings(!showPastTrainings)}
+										>
+											<MaterialCommunityIcons
+												name={showPastTrainings ? "folder-open" : "folder"}
+												size={20}
+												color={COLORS.textLight}
+											/>
+											<Text style={styles.archiveHeaderText}>
+												Archiwum minionych treningów ({past.length})
+											</Text>
+											<MaterialIcons
+												name={showPastTrainings ? "keyboard-arrow-up" : "keyboard-arrow-down"}
+												size={24}
+												color={COLORS.textLight}
+											/>
+										</TouchableOpacity>
+
+										{showPastTrainings && past.map((item) => {
+											const training = item.event;
+											return (
+												<Card key={training.id} style={[styles.card, styles.pastCard]}>
+													<Card.Content>
+														<View style={styles.cardHeader}>
+															<Title style={[styles.title, { color: COLORS.textLight }]}>{training.title}</Title>
+															<Text style={[styles.groupBadge, { opacity: 0.7 }]}>{getTeamName(training.team_id)}</Text>
+														</View>
+														<View style={styles.infoRow}>
+															<Text style={styles.infoLabel}>Termin:</Text>
+															<Text style={[styles.infoValue, { color: COLORS.textLight }]}>{training.time}</Text>
+														</View>
+													</Card.Content>
+												</Card>
+											);
+										})}
+									</View>
+								)}
+							</View>
+						);
+					})() : (() => {
+						const { upcoming, past } = processEvents(matches, "match");
+						if (upcoming.length === 0 && past.length === 0) {
+							return (
+								<View style={styles.emptyContainer}>
+									<Text style={styles.emptyText}>Brak zaplanowanych meczów.</Text>
+								</View>
+							);
+						}
+
+						return (
+							<View>
+								{/* Sekcja Nadchodzących Meczów */}
+								{upcoming.map((item, index) => {
+									const match = item.event;
+									const isHero = index === 0;
+									let swipeableRef: Swipeable | null = null;
+									const renderRightActions = () => (
+										<View style={styles.swipeActionsContainer}>
+											<TouchableOpacity
+												style={[styles.swipeActionBtn, styles.editActionBtn]}
+												onPress={() => {
+													swipeableRef?.close();
+													openEditDialog(match, "match");
+												}}
+											>
+												<MaterialIcons name="edit" size={22} color={COLORS.white} />
+												<Text style={styles.swipeActionText}>Edytuj</Text>
+											</TouchableOpacity>
+											<TouchableOpacity
+												style={[styles.swipeActionBtn, styles.deleteActionBtn]}
+												onPress={() => {
+													swipeableRef?.close();
+													confirmDeleteEvent(match.id, "match");
+												}}
+											>
+												<MaterialIcons name="delete" size={22} color={COLORS.white} />
+												<Text style={styles.swipeActionText}>Usuń</Text>
+											</TouchableOpacity>
 										</View>
 									);
-								}
-								return <View key={match.id}>{cardContent}</View>;
-							})
-						)
-					)}
+
+									const cardContent = (
+										<Card style={[styles.card, styles.matchCard, isHero && styles.heroMatchCard]}>
+											<Card.Content>
+												{isHero && (
+													<View style={styles.heroBadgeRow}>
+														<MaterialCommunityIcons name="trophy" size={16} color={COLORS.white} />
+														<Text style={styles.heroBadgeText}>NAJBLIŻSZY MECZ</Text>
+													</View>
+												)}
+												<View style={styles.cardHeader}>
+													<Title style={styles.title}>GKS Strzegowo vs {match.opponent}</Title>
+													<Text style={styles.matchBadge}>{getTeamName(match.team_id)}</Text>
+												</View>
+												<View style={styles.infoRow}>
+													<Text style={styles.infoLabel}>Termin:</Text>
+													<Text style={styles.infoValue}>{formatDate(match.match_date)}</Text>
+												</View>
+												<View style={styles.infoRow}>
+													<Text style={styles.infoLabel}>Miejsce:</Text>
+													<Text style={styles.infoValue}>{match.location}</Text>
+												</View>
+												<View style={styles.resultRow}>
+													<Text style={styles.resultLabel}>Wynik:</Text>
+													<Text style={styles.resultValue}>
+														{match.result ? match.result : "Nadchodzący"}
+													</Text>
+												</View>
+											</Card.Content>
+										</Card>
+									);
+
+									if (isCoachOrAdmin) {
+										return (
+											<View key={match.id} style={{ marginBottom: 16 }}>
+												<Swipeable
+													ref={ref => { swipeableRef = ref; }}
+													renderRightActions={renderRightActions}
+													friction={2}
+													rightThreshold={40}
+												>
+													<View style={{ marginBottom: -16, overflow: "hidden" }}>
+														{cardContent}
+													</View>
+												</Swipeable>
+											</View>
+										);
+									}
+									return <View key={match.id}>{cardContent}</View>;
+								})}
+
+								{/* Sekcja Archiwum Minionych Meczów */}
+								{past.length > 0 && (
+									<View style={styles.archiveSection}>
+										<TouchableOpacity
+											style={styles.archiveHeaderToggle}
+											activeOpacity={0.8}
+											onPress={() => setShowPastMatches(!showPastMatches)}
+										>
+											<MaterialCommunityIcons
+												name={showPastMatches ? "folder-open" : "folder"}
+												size={20}
+												color={COLORS.textLight}
+											/>
+											<Text style={styles.archiveHeaderText}>
+												Archiwum minionych meczów ({past.length})
+											</Text>
+											<MaterialIcons
+												name={showPastMatches ? "keyboard-arrow-up" : "keyboard-arrow-down"}
+												size={24}
+												color={COLORS.textLight}
+											/>
+										</TouchableOpacity>
+
+										{showPastMatches && past.map((item) => {
+											const match = item.event;
+											return (
+												<Card key={match.id} style={[styles.card, styles.matchCard, styles.pastCard]}>
+													<Card.Content>
+														<View style={styles.cardHeader}>
+															<Title style={[styles.title, { color: COLORS.textLight }]}>GKS Strzegowo vs {match.opponent}</Title>
+															<Text style={[styles.matchBadge, { opacity: 0.7 }]}>{getTeamName(match.team_id)}</Text>
+														</View>
+														<View style={styles.infoRow}>
+															<Text style={styles.infoLabel}>Termin:</Text>
+															<Text style={[styles.infoValue, { color: COLORS.textLight }]}>{formatDate(match.match_date)}</Text>
+														</View>
+														<View style={styles.resultRow}>
+															<Text style={styles.resultLabel}>Wynik końcowy:</Text>
+															<Text style={[styles.resultValue, { color: COLORS.textLight }]}>
+																{match.result ? match.result : "Brak wpisanego wyniku"}
+															</Text>
+														</View>
+													</Card.Content>
+												</Card>
+											);
+										})}
+									</View>
+								)}
+							</View>
+						);
+					})()}
 				</ScrollView>
 			</Animated.View>
 
@@ -695,41 +1033,102 @@ export default function TrainingScreen() {
 					</Dialog.Title>
 					<Dialog.Content style={styles.dialogContent}>
 						<ScrollView style={styles.dialogScroll} showsVerticalScrollIndicator={false}>
+							{/* Przełącznik typu wydarzenia (Trening / Mecz) */}
 							{editEventId === null && (
-								<View style={styles.roleSelection}>
-									<View style={styles.radioItem}>
-										<RadioButton
-											value="training"
-											status={eventType === "training" ? "checked" : "unchecked"}
-											onPress={() => setEventType("training")}
-											color={COLORS.primary}
+								<View style={styles.eventTypePillsRow}>
+									<TouchableOpacity
+										activeOpacity={0.85}
+										style={[styles.eventTypePill, eventType === "training" && styles.eventTypePillActive]}
+										onPress={() => setEventType("training")}
+									>
+										<MaterialCommunityIcons
+											name="soccer"
+											size={18}
+											color={eventType === "training" ? COLORS.white : COLORS.textLight}
 										/>
-										<Text style={styles.radioLabel}>Trening</Text>
-									</View>
-									<View style={styles.radioItem}>
-										<RadioButton
-											value="match"
-											status={eventType === "match" ? "checked" : "unchecked"}
-											onPress={() => setEventType("match")}
-											color={COLORS.primary}
+										<Text style={[styles.eventTypePillText, eventType === "training" && styles.eventTypePillTextActive]}>
+											Trening
+										</Text>
+									</TouchableOpacity>
+									<TouchableOpacity
+										activeOpacity={0.85}
+										style={[styles.eventTypePill, eventType === "match" && styles.eventTypePillActive]}
+										onPress={() => setEventType("match")}
+									>
+										<MaterialCommunityIcons
+											name="trophy-outline"
+											size={18}
+											color={eventType === "match" ? COLORS.white : COLORS.textLight}
 										/>
-										<Text style={styles.radioLabel}>Mecz</Text>
-									</View>
+										<Text style={[styles.eventTypePillText, eventType === "match" && styles.eventTypePillTextActive]}>
+											Mecz
+										</Text>
+									</TouchableOpacity>
 								</View>
 							)}
 
-							<Text style={styles.formLabel}>Wybierz zespół:</Text>
-							<RadioButton.Group
-								onValueChange={setFormTeamId}
-								value={formTeamId}
+							{/* Wybór docelowego zespołu */}
+							<Text style={styles.formLabel}>Docelowy zespół:</Text>
+							<TouchableOpacity
+								style={styles.dropdownSelector}
+								activeOpacity={getVisibleTeamsForForm().length > 1 ? 0.8 : 1}
+								onPress={() => {
+									if (getVisibleTeamsForForm().length > 1) {
+										setFormTeamModalVisible(true);
+									}
+								}}
 							>
-								{teams.map((t) => (
-									<View key={t.id} style={styles.radioItem}>
-										<RadioButton value={t.id.toString()} color={COLORS.primary} />
-										<Text style={styles.radioLabel}>{t.name}</Text>
-									</View>
-								))}
-							</RadioButton.Group>
+								<MaterialIcons name="groups" size={22} color={COLORS.primary} />
+								<Text style={styles.dropdownSelectorText}>
+									{teams.find((t) => t.id.toString() === formTeamId)?.name || "Wybierz zespół"}
+								</Text>
+								{getVisibleTeamsForForm().length > 1 && (
+									<MaterialIcons name="arrow-drop-down" size={26} color={COLORS.textLight} />
+								)}
+							</TouchableOpacity>
+
+							{/* Modal wyboru zespołu w formularzu */}
+							<Portal>
+								<Dialog
+									visible={formTeamModalVisible}
+									onDismiss={() => setFormTeamModalVisible(false)}
+									style={styles.dialogContainer}
+								>
+									<Dialog.Title style={styles.dialogTitle}>Wybierz zespół</Dialog.Title>
+									<Dialog.Content style={{ paddingHorizontal: 16 }}>
+										<ScrollView style={{ maxHeight: 280 }} showsVerticalScrollIndicator={false}>
+											{getVisibleTeamsForForm().map((t) => {
+												const isSelected = formTeamId === t.id.toString();
+												return (
+													<TouchableOpacity
+														key={t.id}
+														style={[
+															styles.dropdownOption,
+															isSelected && styles.dropdownOptionActive
+														]}
+														onPress={() => {
+															setFormTeamId(t.id.toString());
+															setFormTeamModalVisible(false);
+														}}
+													>
+														<MaterialIcons name="group" size={20} color={isSelected ? COLORS.primary : COLORS.textLight} />
+														<Text style={[
+															styles.dropdownOptionText,
+															isSelected && styles.dropdownOptionTextActive
+														]}>
+															{t.name}
+														</Text>
+														{isSelected && <MaterialIcons name="check" size={20} color={COLORS.primary} />}
+													</TouchableOpacity>
+												);
+											})}
+										</ScrollView>
+									</Dialog.Content>
+									<Dialog.Actions>
+										<Button onPress={() => setFormTeamModalVisible(false)}>Zamknij</Button>
+									</Dialog.Actions>
+								</Dialog>
+							</Portal>
 
 							{eventType === "training" ? (
 								<View>
@@ -739,7 +1138,10 @@ export default function TrainingScreen() {
 										onChangeText={setFormTitle}
 										mode="outlined"
 										style={styles.formInput}
+										outlineColor={COLORS.border}
 										activeOutlineColor={COLORS.primary}
+										textColor={COLORS.textDark}
+										left={<TextInput.Icon icon="format-title" color={COLORS.textLight} />}
 									/>
 									<TextInput
 										label="Opis treningu"
@@ -747,7 +1149,10 @@ export default function TrainingScreen() {
 										onChangeText={setFormDescription}
 										mode="outlined"
 										style={styles.formInput}
+										outlineColor={COLORS.border}
 										activeOutlineColor={COLORS.primary}
+										textColor={COLORS.textDark}
+										left={<TextInput.Icon icon="text-subject" color={COLORS.textLight} />}
 									/>
 									<TextInput
 										label="Trener prowadzący"
@@ -755,7 +1160,10 @@ export default function TrainingScreen() {
 										onChangeText={setFormCoach}
 										mode="outlined"
 										style={styles.formInput}
+										outlineColor={COLORS.border}
 										activeOutlineColor={COLORS.primary}
+										textColor={COLORS.textDark}
+										left={<TextInput.Icon icon="account-tie" color={COLORS.textLight} />}
 									/>
 
 									{editEventId === null && (
@@ -771,137 +1179,406 @@ export default function TrainingScreen() {
 
 									{editEventId === null && isCyclic ? (
 										<View style={styles.cyclicContainer}>
+											{/* Wybór dni tygodnia (Dropdown Selector) */}
 											<Text style={styles.formLabel}>Wybierz dni tygodnia:</Text>
-											<ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.weekdayChipsScroll}>
-												{weekdays.map((day) => {
-													const selected = selectedWeekdays.includes(day);
-													return (
-														<TouchableOpacity
-															key={day}
-															style={[styles.weekdayChip, selected && styles.weekdayChipActive]}
-															onPress={() => {
-																if (selected) {
-																	setSelectedWeekdays(selectedWeekdays.filter((d) => d !== day));
-																} else {
-																	setSelectedWeekdays([...selectedWeekdays, day]);
-																}
-															}}
-														>
-															<Text style={[styles.weekdayChipText, selected && styles.weekdayChipTextActive]}>
-																{day}
-															</Text>
-														</TouchableOpacity>
-													);
-												})}
-											</ScrollView>
+											<TouchableOpacity
+												style={styles.dropdownSelector}
+												activeOpacity={0.8}
+												onPress={() => setWeekdaysModalVisible(true)}
+											>
+												<MaterialCommunityIcons name="calendar-multiselect" size={22} color={COLORS.primary} />
+												<Text style={styles.dropdownSelectorText}>
+													{selectedWeekdays.length > 0
+														? selectedWeekdays.join(", ")
+														: "Wybierz dni tygodnia (np. Wtorek, Czwartek)"}
+												</Text>
+												<MaterialIcons name="arrow-drop-down" size={26} color={COLORS.textLight} />
+											</TouchableOpacity>
 
+											{/* Modal Wyboru Dni Tygodnia */}
+											<Portal>
+												<Dialog
+													visible={weekdaysModalVisible}
+													onDismiss={() => setWeekdaysModalVisible(false)}
+													style={styles.dialogContainer}
+												>
+													<Dialog.Title style={styles.dialogTitle}>Wybierz dni tygodnia</Dialog.Title>
+													<Dialog.Content style={{ paddingHorizontal: 16 }}>
+														<ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
+															{weekdays.map((day) => {
+																const isSelected = selectedWeekdays.includes(day);
+																return (
+																	<TouchableOpacity
+																		key={day}
+																		style={[
+																			styles.dropdownOption,
+																			isSelected && styles.dropdownOptionActive
+																		]}
+																		onPress={() => {
+																			if (isSelected) {
+																				setSelectedWeekdays(selectedWeekdays.filter((d) => d !== day));
+																			} else {
+																				setSelectedWeekdays([...selectedWeekdays, day]);
+																			}
+																		}}
+																	>
+																		<MaterialCommunityIcons
+																			name={isSelected ? "checkbox-marked" : "checkbox-blank-outline"}
+																			size={22}
+																			color={isSelected ? COLORS.primary : COLORS.textLight}
+																		/>
+																		<Text style={[
+																			styles.dropdownOptionText,
+																			isSelected && styles.dropdownOptionTextActive
+																		]}>
+																			{day}
+																		</Text>
+																	</TouchableOpacity>
+																);
+															})}
+														</ScrollView>
+													</Dialog.Content>
+													<Dialog.Actions>
+														<Button
+															mode="contained"
+															onPress={() => setWeekdaysModalVisible(false)}
+															style={{ backgroundColor: COLORS.primary }}
+															labelStyle={{ fontFamily: FONTS.bold, color: COLORS.white }}
+														>
+															Gotowe
+														</Button>
+													</Dialog.Actions>
+												</Dialog>
+											</Portal>
+
+											{/* Wybór czasu trwania cyklu (Dropdown Selector) */}
 											<Text style={styles.formLabel}>Czas trwania cyklu:</Text>
-											<View style={styles.periodChipsContainer}>
-												{[
-													{ label: "1 miesiąc", val: 1 },
-													{ label: "3 miesiące", val: 3 },
-													{ label: "6 miesięcy", val: 6 }
-												].map((item) => {
-													const active = recurrenceMonths === item.val;
-													return (
-														<TouchableOpacity
-															key={item.val}
-															style={[styles.periodChip, active && styles.periodChipActive]}
-															onPress={() => setRecurrenceMonths(item.val)}
-														>
-															<Text style={[styles.periodChipText, active && styles.periodChipTextActive]}>
-																{item.label}
-															</Text>
-														</TouchableOpacity>
-													);
-												})}
-											</View>
+											<TouchableOpacity
+												style={styles.dropdownSelector}
+												activeOpacity={0.8}
+												onPress={() => setPeriodModalVisible(true)}
+											>
+												<MaterialCommunityIcons name="calendar-clock" size={22} color={COLORS.primary} />
+												<Text style={styles.dropdownSelectorText}>
+													{[
+														{ label: "1 miesiąc", val: 1 },
+														{ label: "3 miesiące", val: 3 },
+														{ label: "6 miesięcy", val: 6 }
+													].find((p) => p.val === recurrenceMonths)?.label || "Wybierz czas trwania"}
+												</Text>
+												<MaterialIcons name="arrow-drop-down" size={26} color={COLORS.textLight} />
+											</TouchableOpacity>
 
-											<TextInput
-												label="Godziny treningu (np. 17:00-18:30)"
-												value={formTimeHours}
-												onChangeText={setFormTimeHours}
-												mode="outlined"
-												style={styles.formInput}
-												activeOutlineColor={COLORS.primary}
-												placeholder="HH:MM-HH:MM"
+											{/* Modal Wyboru Czasu Trwania Cyklu */}
+											<Portal>
+												<Dialog
+													visible={periodModalVisible}
+													onDismiss={() => setPeriodModalVisible(false)}
+													style={styles.dialogContainer}
+												>
+													<Dialog.Title style={styles.dialogTitle}>Czas trwania cyklu</Dialog.Title>
+													<Dialog.Content style={{ paddingHorizontal: 16 }}>
+														<ScrollView style={{ maxHeight: 240 }} showsVerticalScrollIndicator={false}>
+															{[
+																{ label: "1 miesiąc (ok. 4 tygodnie)", val: 1 },
+																{ label: "3 miesiące (ok. 12 tygodni)", val: 3 },
+																{ label: "6 miesięcy (ok. 24 tygodnie)", val: 6 }
+															].map((item) => {
+																const isSelected = recurrenceMonths === item.val;
+																return (
+																	<TouchableOpacity
+																		key={item.val}
+																		style={[
+																			styles.dropdownOption,
+																			isSelected && styles.dropdownOptionActive
+																		]}
+																		onPress={() => {
+																			setRecurrenceMonths(item.val);
+																			setPeriodModalVisible(false);
+																		}}
+																	>
+																		<MaterialCommunityIcons
+																			name="history"
+																			size={20}
+																			color={isSelected ? COLORS.primary : COLORS.textLight}
+																		/>
+																		<Text style={[
+																			styles.dropdownOptionText,
+																			isSelected && styles.dropdownOptionTextActive
+																		]}>
+																			{item.label}
+																		</Text>
+																		{isSelected && <MaterialIcons name="check" size={20} color={COLORS.primary} />}
+																	</TouchableOpacity>
+																);
+															})}
+														</ScrollView>
+													</Dialog.Content>
+													<Dialog.Actions>
+														<Button onPress={() => setPeriodModalVisible(false)}>Zamknij</Button>
+													</Dialog.Actions>
+												</Dialog>
+											</Portal>
+
+											{/* Wybór godzin treningu cyklicznego */}
+											<Text style={styles.formLabel}>Godziny treningu cyklicznego:</Text>
+											<View style={{ flexDirection: "row", gap: 12 }}>
+												<View style={{ flex: 1 }}>
+													<Text style={[styles.formLabel, { fontSize: 12, marginTop: 0 }]}>Od godz.:</Text>
+													<TouchableOpacity
+														style={styles.dropdownSelector}
+														activeOpacity={0.8}
+														onPress={() => setStartTimePickerVisible(true)}
+													>
+														<MaterialCommunityIcons name="clock-start" size={20} color={COLORS.primary} />
+														<Text style={styles.dropdownSelectorText}>{cyclicStartTime}</Text>
+													</TouchableOpacity>
+												</View>
+												<View style={{ flex: 1 }}>
+													<Text style={[styles.formLabel, { fontSize: 12, marginTop: 0 }]}>Do godz.:</Text>
+													<TouchableOpacity
+														style={styles.dropdownSelector}
+														activeOpacity={0.8}
+														onPress={() => setEndTimePickerVisible(true)}
+													>
+														<MaterialCommunityIcons name="clock-end" size={20} color={COLORS.primary} />
+														<Text style={styles.dropdownSelectorText}>{cyclicEndTime}</Text>
+													</TouchableOpacity>
+												</View>
+											</View>
+											<DateTimePickerModal
+												isVisible={isStartTimePickerVisible}
+												mode="time"
+												minuteInterval={30}
+												onConfirm={handleConfirmStartTime}
+												onCancel={() => setStartTimePickerVisible(false)}
+												confirmTextIOS="Zatwierdź"
+												cancelTextIOS="Anuluj"
+											/>
+											<DateTimePickerModal
+												isVisible={isEndTimePickerVisible}
+												mode="time"
+												minuteInterval={30}
+												onConfirm={handleConfirmEndTime}
+												onCancel={() => setEndTimePickerVisible(false)}
+												confirmTextIOS="Zatwierdź"
+												cancelTextIOS="Anuluj"
 											/>
 										</View>
 									) : (
-										<TextInput
-											label="Termin (np. Wtorek 17:00-18:30)"
-											value={formTime}
-											onChangeText={setFormTime}
-											mode="outlined"
-											style={styles.formInput}
-											activeOutlineColor={COLORS.primary}
-										/>
+										<View>
+											<Text style={styles.formLabel}>Termin i godzina treningu:</Text>
+											<TouchableOpacity
+												style={styles.dropdownSelector}
+												activeOpacity={0.8}
+												onPress={() => setTrainingDatePickerVisible(true)}
+											>
+												<MaterialCommunityIcons name="clock-outline" size={22} color={COLORS.primary} />
+												<Text style={styles.dropdownSelectorText}>
+													{formTime || "Wybierz datę i godzinę treningu"}
+												</Text>
+												<MaterialIcons name="arrow-drop-down" size={26} color={COLORS.textLight} />
+											</TouchableOpacity>
+											<DateTimePickerModal
+												isVisible={isTrainingDatePickerVisible}
+												mode="datetime"
+												minuteInterval={30}
+												onConfirm={handleConfirmTrainingDate}
+												onCancel={() => setTrainingDatePickerVisible(false)}
+												confirmTextIOS="Zatwierdź"
+												cancelTextIOS="Anuluj"
+											/>
+										</View>
 									)}
 
-									<TextInput
-										label="Miejsce (np. Boisko główne)"
-										value={formLocation}
-										onChangeText={setFormLocation}
-										mode="outlined"
-										style={styles.formInput}
-										activeOutlineColor={COLORS.primary}
-									/>
-									<TextInput
-										label="Limit miejsc"
-										value={formMaxCapacity}
-										onChangeText={setFormMaxCapacity}
-										keyboardType="numeric"
-										mode="outlined"
-										style={styles.formInput}
-										activeOutlineColor={COLORS.primary}
-									/>
+									{/* Selektor miejsca wydarzenia */}
+									<Text style={styles.formLabel}>Miejsce treningu:</Text>
+									<TouchableOpacity
+										style={styles.dropdownSelector}
+										activeOpacity={0.8}
+										onPress={() => setLocationModalVisible(true)}
+									>
+										<MaterialCommunityIcons name="map-marker-outline" size={22} color={COLORS.primary} />
+										<Text style={styles.dropdownSelectorText} numberOfLines={2}>
+											{formLocation || "Wybierz obiekt sportowy"}
+										</Text>
+										<MaterialIcons name="arrow-drop-down" size={26} color={COLORS.textLight} />
+									</TouchableOpacity>
+
+									{isCustomLocation && (
+										<TextInput
+											label="Wpisz własny adres / nazwę stadionu"
+											value={formLocation}
+											onChangeText={setFormLocation}
+											mode="outlined"
+											style={styles.formInput}
+											outlineColor={COLORS.border}
+											activeOutlineColor={COLORS.primary}
+											textColor={COLORS.textDark}
+											left={<TextInput.Icon icon="map-marker-edit-outline" color={COLORS.textLight} />}
+										/>
+									)}
 								</View>
 							) : (
 								<View>
 									<TextInput
-										label="Przeciwnik"
+										label="Przeciwnik (np. Mławianka II Mława)"
 										value={formOpponent}
 										onChangeText={setFormOpponent}
 										mode="outlined"
 										style={styles.formInput}
+										outlineColor={COLORS.border}
 										activeOutlineColor={COLORS.primary}
+										textColor={COLORS.textDark}
+										left={<TextInput.Icon icon="shield-outline" color={COLORS.textLight} />}
 									/>
-									<TextInput
-										label="Data meczu (np. 2026-08-20 18:00)"
-										value={formDate}
-										onChangeText={setFormDate}
-										mode="outlined"
-										style={styles.formInput}
-										activeOutlineColor={COLORS.primary}
-										placeholder="YYYY-MM-DD HH:MM"
+									
+									<Text style={styles.formLabel}>Data i godzina meczu:</Text>
+									<TouchableOpacity
+										style={styles.dropdownSelector}
+										activeOpacity={0.8}
+										onPress={() => setMatchDatePickerVisible(true)}
+									>
+										<MaterialCommunityIcons name="calendar-clock" size={22} color={COLORS.primary} />
+										<Text style={styles.dropdownSelectorText}>
+											{formDate || "Wybierz datę i godzinę meczu"}
+										</Text>
+										<MaterialIcons name="arrow-drop-down" size={26} color={COLORS.textLight} />
+									</TouchableOpacity>
+									<DateTimePickerModal
+										isVisible={isMatchDatePickerVisible}
+										mode="datetime"
+										minuteInterval={30}
+										onConfirm={handleConfirmMatchDate}
+										onCancel={() => setMatchDatePickerVisible(false)}
+										confirmTextIOS="Zatwierdź"
+										cancelTextIOS="Anuluj"
 									/>
+
+									{/* Selektor miejsca meczu */}
+									<Text style={styles.formLabel}>Miejsce meczu:</Text>
+									<TouchableOpacity
+										style={styles.dropdownSelector}
+										activeOpacity={0.8}
+										onPress={() => setLocationModalVisible(true)}
+									>
+										<MaterialCommunityIcons name="map-marker-outline" size={22} color={COLORS.primary} />
+										<Text style={styles.dropdownSelectorText} numberOfLines={2}>
+											{formLocation || "Wybierz miejsce meczu"}
+										</Text>
+										<MaterialIcons name="arrow-drop-down" size={26} color={COLORS.textLight} />
+									</TouchableOpacity>
+
+									{isCustomLocation && (
+										<TextInput
+											label="Wpisz adres stadionu rywali (wyjazd)"
+											value={formLocation}
+											onChangeText={setFormLocation}
+											mode="outlined"
+											style={styles.formInput}
+											outlineColor={COLORS.border}
+											activeOutlineColor={COLORS.primary}
+											textColor={COLORS.textDark}
+											left={<TextInput.Icon icon="map-marker-edit-outline" color={COLORS.textLight} />}
+										/>
+									)}
 									<TextInput
-										label="Miejsce (np. Strzegowo (Dom) lub Wyjazd)"
-										value={formLocation}
-										onChangeText={setFormLocation}
-										mode="outlined"
-										style={styles.formInput}
-										activeOutlineColor={COLORS.primary}
-									/>
-									<TextInput
-										label="Wynik (np. 3:1) - opcjonalnie"
+										label="Wynik meczu (np. 3:1) - opcjonalnie"
 										value={formResult}
 										onChangeText={setFormResult}
 										mode="outlined"
 										style={styles.formInput}
+										outlineColor={COLORS.border}
 										activeOutlineColor={COLORS.primary}
+										textColor={COLORS.textDark}
+										left={<TextInput.Icon icon="scoreboard-outline" color={COLORS.textLight} />}
 									/>
 								</View>
 							)}
 
+							{/* Modal Wyboru Miejsca */}
+							<Portal>
+								<Dialog
+									visible={locationModalVisible}
+									onDismiss={() => setLocationModalVisible(false)}
+									style={styles.dialogContainer}
+								>
+									<Dialog.Title style={styles.dialogTitle}>Wybierz miejsce</Dialog.Title>
+									<Dialog.Content style={{ paddingHorizontal: 16 }}>
+										<ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
+											{CLUB_LOCATIONS.map((loc) => {
+												const isSelected = formLocation === loc.address || (loc.id === "wyjazd" && isCustomLocation);
+												return (
+													<TouchableOpacity
+														key={loc.id}
+														style={[
+															styles.dropdownOption,
+															isSelected && styles.dropdownOptionActive
+														]}
+														onPress={() => {
+															if (loc.id === "wyjazd") {
+																setIsCustomLocation(true);
+																if (formLocation === loc.address) setFormLocation("");
+															} else {
+																setIsCustomLocation(false);
+																setFormLocation(loc.address);
+															}
+															setLocationModalVisible(false);
+														}}
+													>
+														<MaterialCommunityIcons
+															name={loc.icon as any}
+															size={22}
+															color={isSelected ? COLORS.primary : COLORS.textLight}
+														/>
+														<View style={{ flex: 1, marginLeft: 12 }}>
+															<Text style={[
+																styles.dropdownOptionText,
+																{ marginLeft: 0 },
+																isSelected && styles.dropdownOptionTextActive
+															]}>
+																{loc.name}
+															</Text>
+															{loc.address ? (
+																<Text style={{ fontSize: 11, color: COLORS.textLight, fontFamily: FONTS.regular }}>
+																	{loc.address}
+																</Text>
+															) : null}
+														</View>
+														{isSelected && <MaterialIcons name="check" size={20} color={COLORS.primary} />}
+													</TouchableOpacity>
+												);
+											})}
+										</ScrollView>
+									</Dialog.Content>
+									<Dialog.Actions>
+										<Button onPress={() => setLocationModalVisible(false)}>Zamknij</Button>
+									</Dialog.Actions>
+								</Dialog>
+							</Portal>
+
 							{formError ? <Text style={styles.formError}>{formError}</Text> : null}
 						</ScrollView>
 					</Dialog.Content>
-					<Dialog.Actions>
-						<Button onPress={() => setDialogVisible(false)} disabled={actionLoading} labelStyle={styles.dialogBtnLabel}>
+					<Dialog.Actions style={{ paddingHorizontal: 24, paddingBottom: 16 }}>
+						<Button
+							mode="outlined"
+							onPress={() => setDialogVisible(false)}
+							disabled={actionLoading}
+							labelStyle={{ fontFamily: FONTS.bold }}
+							textColor={COLORS.textLight}
+							style={{ marginRight: 8, borderColor: COLORS.border }}
+						>
 							Anuluj
 						</Button>
-						<Button onPress={handleAddEvent} loading={actionLoading} disabled={actionLoading} labelStyle={styles.dialogBtnLabel}>
+						<Button
+							mode="contained"
+							onPress={handleAddOrEditEvent}
+							loading={actionLoading}
+							disabled={actionLoading}
+							labelStyle={{ fontFamily: FONTS.bold, color: COLORS.white }}
+							style={{ backgroundColor: COLORS.primary }}
+						>
 							Zapisz
 						</Button>
 					</Dialog.Actions>
@@ -1330,5 +2007,148 @@ const styles = StyleSheet.create({
 		fontFamily: FONTS.bold,
 		color: COLORS.white,
 		fontSize: 13,
+	},
+	eventTypePillsRow: {
+		flexDirection: "row",
+		backgroundColor: "#F1F5F9",
+		borderRadius: 12,
+		padding: 4,
+		marginBottom: 16,
+		borderWidth: 1,
+		borderColor: "#E2E8F0",
+	},
+	eventTypePill: {
+		flex: 1,
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "center",
+		paddingVertical: 10,
+		borderRadius: 9,
+	},
+	eventTypePillActive: {
+		backgroundColor: COLORS.primary,
+		elevation: 2,
+		shadowColor: COLORS.primary,
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.2,
+		shadowRadius: 3,
+	},
+	eventTypePillText: {
+		fontSize: 13,
+		fontFamily: FONTS.semiBold,
+		color: COLORS.textLight,
+		marginLeft: 6,
+	},
+	eventTypePillTextActive: {
+		fontFamily: FONTS.bold,
+		color: COLORS.white,
+	},
+	dropdownSelector: {
+		flexDirection: "row",
+		alignItems: "center",
+		backgroundColor: COLORS.white,
+		borderWidth: 1,
+		borderColor: COLORS.border,
+		borderRadius: 10,
+		paddingHorizontal: 14,
+		paddingVertical: 12,
+		marginTop: 4,
+		marginBottom: 12,
+	},
+	dropdownSelectorText: {
+		flex: 1,
+		fontSize: 14,
+		fontFamily: FONTS.semiBold,
+		color: COLORS.textDark,
+		marginLeft: 10,
+	},
+	dialogContainer: {
+		backgroundColor: COLORS.white,
+		borderRadius: 16,
+	},
+	dropdownOption: {
+		flexDirection: "row",
+		alignItems: "center",
+		paddingVertical: 12,
+		paddingHorizontal: 16,
+		borderRadius: 8,
+		marginBottom: 4,
+	},
+	dropdownOptionActive: {
+		backgroundColor: COLORS.primaryLight,
+	},
+	dropdownOptionText: {
+		flex: 1,
+		fontSize: 14,
+		fontFamily: FONTS.regular,
+		color: COLORS.textDark,
+		marginLeft: 12,
+	},
+	dropdownOptionTextActive: {
+		fontFamily: FONTS.bold,
+		color: COLORS.primary,
+	},
+
+	// Hero Spotlight Card (Najbliższe Wydarzenie)
+	heroCard: {
+		borderLeftWidth: 5,
+		borderLeftColor: COLORS.primary,
+		backgroundColor: "#F0F7FF",
+		elevation: 4,
+		shadowColor: COLORS.primary,
+		shadowOffset: { width: 0, height: 3 },
+		shadowOpacity: 0.15,
+		shadowRadius: 6,
+	},
+	heroMatchCard: {
+		borderLeftWidth: 5,
+		borderLeftColor: COLORS.primary,
+		backgroundColor: "#F0F7FF",
+	},
+	heroBadgeRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		alignSelf: "flex-start",
+		backgroundColor: COLORS.primary,
+		paddingHorizontal: 10,
+		paddingVertical: 3,
+		borderRadius: 12,
+		marginBottom: 8,
+	},
+	heroBadgeText: {
+		fontSize: 10,
+		fontFamily: FONTS.bold,
+		color: COLORS.white,
+		marginLeft: 4,
+		letterSpacing: 0.5,
+	},
+
+	// Archiwum minionych wydarzeń
+	archiveSection: {
+		marginTop: 16,
+		marginBottom: 24,
+	},
+	archiveHeaderToggle: {
+		flexDirection: "row",
+		alignItems: "center",
+		backgroundColor: "#F8FAFC",
+		paddingHorizontal: 14,
+		paddingVertical: 12,
+		borderRadius: 12,
+		borderWidth: 1,
+		borderColor: "#E2E8F0",
+		marginBottom: 12,
+	},
+	archiveHeaderText: {
+		flex: 1,
+		fontSize: 13,
+		fontFamily: FONTS.semiBold,
+		color: COLORS.textLight,
+		marginLeft: 10,
+	},
+	pastCard: {
+		opacity: 0.75,
+		backgroundColor: "#F8FAFC",
+		borderLeftColor: "#94A3B8",
 	},
 });
