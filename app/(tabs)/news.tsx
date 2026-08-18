@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { View, FlatList, ActivityIndicator, RefreshControl, Dimensions, ImageBackground, ScrollView, TouchableOpacity, Image, Alert, Animated, Platform } from "react-native";
 import { styles } from "../../css/news";
-import { Card, Title, Paragraph, Text, Button, SegmentedButtons, Portal, Dialog, FAB, TextInput, Switch } from "react-native-paper";
-import { MaterialIcons } from "@expo/vector-icons";
+import { Card, Title, Paragraph, Text, Button, Portal, Dialog, FAB, TextInput, Switch } from "react-native-paper";
+import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { supabase } from "../../lib/supabase";
 import { COLORS } from "../../css/colors";
 import { FONTS } from "../../css/fonts";
@@ -51,7 +51,8 @@ export default function NewsScreen() {
 	const [isAddAnnouncementVisible, setIsAddAnnouncementVisible] = useState(false);
 	const [newsTitle, setNewsTitle] = useState("");
 	const [newsContent, setNewsContent] = useState("");
-	const [imageUri, setImageUri] = useState<string | null>(null);
+	const [imageUris, setImageUris] = useState<string[]>([]);
+	const [carouselIndex, setCarouselIndex] = useState(0);
 	const [uploading, setUploading] = useState(false);
 	const [newsIsFirstTeam, setNewsIsFirstTeam] = useState(false);
 	const [newsIsImportant, setNewsIsImportant] = useState(false);
@@ -135,6 +136,10 @@ export default function NewsScreen() {
 	}, [profile]);
 
 	const pickImage = async () => {
+		if (imageUris.length >= 3) {
+			alert("Możesz dodać maksymalnie 3 zdjęcia.");
+			return;
+		}
 		const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 		if (permissionResult.granted === false) {
 			alert("Wymagane jest zezwolenie na dostęp do galerii!");
@@ -143,17 +148,23 @@ export default function NewsScreen() {
 
 		const result = await ImagePicker.launchImageLibraryAsync({
 			mediaTypes: ImagePicker.MediaTypeOptions.Images,
-			allowsEditing: true,
-			aspect: [3, 2],
-			quality: 0.7,
+			allowsEditing: false,
+			quality: 0.8,
+			allowsMultipleSelection: true,
+			selectionLimit: 3 - imageUris.length,
 		});
 
-		if (!result.canceled) {
-			setImageUri(result.assets[0].uri);
+		if (!result.canceled && result.assets.length > 0) {
+			const picked = result.assets.map((a) => a.uri);
+			setImageUris((prev) => [...prev, ...picked].slice(0, 3));
 		}
 	};
 
 	const takePhoto = async () => {
+		if (imageUris.length >= 3) {
+			alert("Możesz dodać maksymalnie 3 zdjęcia.");
+			return;
+		}
 		const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
 		if (permissionResult.granted === false) {
 			alert("Wymagane jest zezwolenie na dostęp do aparatu!");
@@ -162,14 +173,17 @@ export default function NewsScreen() {
 
 		const result = await ImagePicker.launchCameraAsync({
 			mediaTypes: ImagePicker.MediaTypeOptions.Images,
-			allowsEditing: true,
-			aspect: [3, 2],
-			quality: 0.7,
+			allowsEditing: false,
+			quality: 0.8,
 		});
 
-		if (!result.canceled) {
-			setImageUri(result.assets[0].uri);
+		if (!result.canceled && result.assets[0]?.uri) {
+			setImageUris((prev) => [...prev, result.assets[0].uri].slice(0, 3));
 		}
+	};
+
+	const removeImage = (index: number) => {
+		setImageUris((prev) => prev.filter((_, i) => i !== index));
 	};
 
 	const uploadImage = async (uri: string): Promise<string> => {
@@ -210,7 +224,10 @@ export default function NewsScreen() {
 		setEditNewsId(item.id);
 		setNewsTitle(item.title);
 		setNewsContent(item.content);
-		setImageUri(item.image_url && item.image_url.startsWith("http") && !item.image_url.includes("unsplash.com") ? getNewsImage(item, -1) : null);
+		const itemImages = item.images && item.images.length > 0
+			? item.images
+			: (item.image_url ? [item.image_url] : []);
+		setImageUris(itemImages);
 		setNewsIsFirstTeam(item.is_first_team || false);
 		setNewsIsImportant(item.is_important || false);
 		setIsAddNewsVisible(true);
@@ -220,7 +237,7 @@ export default function NewsScreen() {
 		setEditNewsId(null);
 		setNewsTitle("");
 		setNewsContent("");
-		setImageUri(null);
+		setImageUris([]);
 		setNewsIsFirstTeam(false);
 		setNewsIsImportant(false);
 		setIsAddNewsVisible(false);
@@ -289,12 +306,18 @@ export default function NewsScreen() {
 
 		try {
 			setUploading(true);
-			let uploadedUrl = imageUri;
+			const uploadedUrls: string[] = [];
 
-			// Jeśli wybrano nowe zdjęcie lokalne (np. ph:// lub file://), wgrywamy je na serwer
-			if (imageUri && (imageUri.startsWith("file://") || imageUri.startsWith("ph://") || imageUri.startsWith("content://"))) {
-				uploadedUrl = await uploadImage(imageUri);
+			for (const uri of imageUris) {
+				if (uri && (uri.startsWith("file://") || uri.startsWith("ph://") || uri.startsWith("content://") || uri.startsWith("blob:"))) {
+					const url = await uploadImage(uri);
+					uploadedUrls.push(url);
+				} else {
+					uploadedUrls.push(uri);
+				}
 			}
+
+			const primaryUrl = uploadedUrls[0] || null;
 
 			if (editNewsId !== null) {
 				const { error } = await supabase
@@ -302,7 +325,8 @@ export default function NewsScreen() {
 					.update({
 						title: newsTitle.trim(),
 						content: newsContent.trim(),
-						image_url: uploadedUrl,
+						image_url: primaryUrl,
+						images: uploadedUrls,
 						is_first_team: newsIsFirstTeam,
 						is_important: newsIsImportant,
 					})
@@ -314,7 +338,8 @@ export default function NewsScreen() {
 					{
 						title: newsTitle.trim(),
 						content: newsContent.trim(),
-						image_url: uploadedUrl,
+						image_url: primaryUrl,
+						images: uploadedUrls,
 						is_first_team: newsIsFirstTeam,
 						is_important: newsIsImportant,
 					},
@@ -371,7 +396,7 @@ export default function NewsScreen() {
 			const { data: newsData, error: newsError } = await supabase
 				.from("news")
 				.select("*")
-				.order("is_important", { ascending: false })
+				.order("is_important", { ascending: false, nullsFirst: false })
 				.order("created_at", { ascending: false });
 
 			if (newsError) throw newsError;
@@ -583,6 +608,127 @@ export default function NewsScreen() {
 		</Card>
 	);
 
+	const renderLeagueTable = () => {
+		const standings = [
+			{ pos: 1, name: "Rzekunianka Rzekuń", m: 2, b: "12-0", pkt: 6, isMe: false },
+			{ pos: 2, name: "Kurpik Kadzidło", m: 2, b: "5-3", pkt: 6, isMe: false },
+			{ pos: 3, name: "Żbik Nasielsk", m: 2, b: "9-3", pkt: 4, isMe: false },
+			{ pos: 4, name: "Kryształ Glinojeck", m: 2, b: "6-5", pkt: 4, isMe: false },
+			{ pos: 5, name: "Narew II Ostrołęka", m: 2, b: "5-3", pkt: 4, isMe: false },
+			{ pos: 6, name: "Mazowsze Jednorożec", m: 2, b: "5-8", pkt: 3, isMe: false },
+			{ pos: 7, name: "Korona Szydłowo", m: 2, b: "1-6", pkt: 3, isMe: false },
+			{ pos: 8, name: "Mławianka II Mława", m: 2, b: "6-4", pkt: 3, isMe: false },
+			{ pos: 9, name: "ULKS Ołdaki", m: 2, b: "5-7", pkt: 3, isMe: false },
+			{ pos: 10, name: "Wkra Żuromin", m: 2, b: "4-4", pkt: 3, isMe: false },
+			{ pos: 11, name: "GKS Strzegowo", m: 2, b: "6-6", pkt: 3, isMe: true },
+			{ pos: 12, name: "Konopianka Konopki", m: 2, b: "4-5", pkt: 1, isMe: false },
+			{ pos: 13, name: "Opia Opinogóra", m: 2, b: "3-6", pkt: 1, isMe: false },
+			{ pos: 14, name: "Ostrovia Ostrów Maz.", m: 2, b: "3-4", pkt: 1, isMe: false },
+			{ pos: 15, name: "MKS Ciechanów", m: 2, b: "4-7", pkt: 0, isMe: false },
+			{ pos: 16, name: "Orzeł Sypniewo", m: 2, b: "2-9", pkt: 0, isMe: false },
+		];
+
+		return (
+			<ScrollView contentContainerStyle={styles.tableScrollContent} showsVerticalScrollIndicator={false}>
+				<Card style={styles.tableCard}>
+					<Card.Content style={{ paddingHorizontal: 0, paddingVertical: 12 }}>
+						<Title style={styles.tableTitle}>Liga Okręgowa - Ciechanów-Ostrołęka</Title>
+						<Text style={styles.tableSubtitle}>Sezon 2026/2027 (Źródło: RegioWyniki)</Text>
+						
+						{/* Nagłówek Tabeli */}
+						<View style={styles.tableHeaderRow}>
+							<Text style={[styles.tableCol, styles.colPos, styles.headerText]}>#</Text>
+							<Text style={[styles.tableCol, styles.colName, styles.headerText, { textAlign: "left" }]}>Drużyna</Text>
+							<Text style={[styles.tableCol, styles.colM, styles.headerText]}>M</Text>
+							<Text style={[styles.tableCol, styles.colB, styles.headerText]}>Bramki</Text>
+							<Text style={[styles.tableCol, styles.colPkt, styles.headerText]}>Pkt</Text>
+						</View>
+
+						{/* Wiersze tabeli */}
+						{standings.map((row) => (
+							<View
+								key={row.pos}
+								style={[
+									styles.tableBodyRow,
+									row.isMe && styles.tableRowHighlight,
+								]}
+							>
+								<Text style={[
+									styles.tableCol,
+									styles.colPos,
+									row.isMe ? styles.textHighlightBold : styles.bodyText,
+									row.pos <= 2 && !row.isMe && { color: "#22c55e", fontFamily: FONTS.bold }
+								]}>
+									{row.pos}
+								</Text>
+								<Text style={[
+									styles.tableCol,
+									styles.colName,
+									row.isMe ? styles.textHighlightBold : styles.bodyText,
+									{ textAlign: "left" }
+								]} numberOfLines={1}>
+									{row.name}
+								</Text>
+								<Text style={[styles.tableCol, styles.colM, row.isMe ? styles.textHighlight : styles.bodyText]}>
+									{row.m}
+								</Text>
+								<Text style={[styles.tableCol, styles.colB, row.isMe ? styles.textHighlight : styles.bodyText]}>
+									{row.b}
+								</Text>
+								<Text style={[styles.tableCol, styles.colPkt, row.isMe ? styles.textHighlightBold : styles.bodyTextBold]}>
+									{row.pkt}
+								</Text>
+							</View>
+						))}
+					</Card.Content>
+				</Card>
+			</ScrollView>
+		);
+	};
+	const renderTabSwitcher = () => {
+		const tabs = [
+			{ id: "news", label: "News", icon: "newspaper-variant-outline" },
+			...(user ? [{ id: "announcements", label: "Ogłoszenia", icon: "bullhorn-outline" }] : []),
+			{ id: "table", label: "Tabela", icon: "trophy-outline" },
+		];
+
+		return (
+			<View style={styles.customTabContainer}>
+				<View style={styles.customTabWrapper}>
+					{tabs.map((tab) => {
+						const isActive = activeTab === tab.id;
+						return (
+							<TouchableOpacity
+								key={tab.id}
+								activeOpacity={0.85}
+								onPress={() => handleTabChange(tab.id as any)}
+								style={[
+									styles.customTabItem,
+									isActive && styles.customTabItemActive,
+								]}
+							>
+								<MaterialCommunityIcons
+									name={tab.icon as any}
+									size={18}
+									color={isActive ? COLORS.white : COLORS.textLight}
+									style={{ marginRight: 6 }}
+								/>
+								<Text
+									style={[
+										styles.customTabText,
+										isActive ? styles.customTabTextActive : styles.customTabTextInactive,
+									]}
+								>
+									{tab.label}
+								</Text>
+							</TouchableOpacity>
+						);
+					})}
+				</View>
+			</View>
+		);
+	};
+
 	if (loading && !refreshing) {
 		return (
 			<View style={styles.loadingContainer}>
@@ -597,32 +743,8 @@ export default function NewsScreen() {
 			style={styles.container}
 			imageStyle={styles.backgroundImageStyle}
 		>
-			{/* Segmented Buttons for tabs navigation - widoczne tylko gdy zalogowany */}
-			{user ? (
-				<View style={styles.tabContainer}>
-					<SegmentedButtons
-						value={activeTab}
-						onValueChange={handleTabChange}
-						buttons={[
-							{
-								value: "news",
-								label: "Pierwszy Zespół",
-								icon: "newspaper",
-								checkedColor: COLORS.white,
-								style: activeTab === "news" ? styles.activeTabButton : styles.inactiveTabButton,
-							},
-							{
-								value: "announcements",
-								label: "Ogłoszenia",
-								icon: "bullhorn",
-								checkedColor: COLORS.white,
-								style: activeTab === "announcements" ? styles.activeTabButton : styles.inactiveTabButton,
-							},
-						]}
-						style={styles.segmentedButtons}
-					/>
-				</View>
-			) : null}
+			{/* Custom Pill Tab Switcher */}
+			{renderTabSwitcher()}
 
 			<Animated.View style={{ flex: 1, opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
 				{activeTab === "news" ? (
@@ -644,47 +766,27 @@ export default function NewsScreen() {
 							</View>
 						}
 					/>
+				) : activeTab === "announcements" ? (
+					<FlatList
+						data={announcements}
+						renderItem={renderAnnouncementItem}
+						keyExtractor={(item) => item.id.toString()}
+						contentContainerStyle={styles.list}
+						refreshControl={
+							<RefreshControl
+								refreshing={refreshing}
+								onRefresh={onRefresh}
+								colors={[COLORS.primary]}
+							/>
+						}
+						ListEmptyComponent={
+							<View style={styles.emptyContainer}>
+								<Text style={styles.emptyText}>Brak nowych ogłoszeń dla Twojej grupy.</Text>
+							</View>
+						}
+					/>
 				) : (
-					// Sekcja Ogłoszeń
-					!user ? (
-						<View style={styles.guestContainer}>
-							<Card style={styles.guestCard}>
-								<Card.Content style={styles.guestContent}>
-									<Title style={styles.guestTitle}>Ogłoszenia Trenerów</Title>
-									<Paragraph style={styles.guestDescription}>
-										Zaloguj się jako rodzic lub zawodnik, aby zobaczyć ważne ogłoszenia od trenerów GKS Strzegowo przeznaczone dla Twojej drużyny.
-									</Paragraph>
-									<Button
-										mode="contained"
-										onPress={() => router.push("/auth/login")}
-										style={styles.guestButton}
-										labelStyle={styles.guestButtonLabel}
-									>
-										Zaloguj się
-									</Button>
-								</Card.Content>
-							</Card>
-						</View>
-					) : (
-						<FlatList
-							data={announcements}
-							renderItem={renderAnnouncementItem}
-							keyExtractor={(item) => item.id.toString()}
-							contentContainerStyle={styles.list}
-							refreshControl={
-								<RefreshControl
-									refreshing={refreshing}
-									onRefresh={onRefresh}
-									colors={[COLORS.primary]}
-								/>
-							}
-							ListEmptyComponent={
-								<View style={styles.emptyContainer}>
-									<Text style={styles.emptyText}>Brak nowych ogłoszeń dla Twojej grupy.</Text>
-								</View>
-							}
-						/>
-					)
+					renderLeagueTable()
 				)}
 			</Animated.View>
 
@@ -692,36 +794,78 @@ export default function NewsScreen() {
 			<Portal>
 				<Dialog
 					visible={!!selectedNews}
-					onDismiss={() => setSelectedNews(null)}
+					onDismiss={() => {
+						setSelectedNews(null);
+						setCarouselIndex(0);
+					}}
 					style={styles.dialogContainer}
 				>
-					{selectedNews && (
-						<View>
-							<Dialog.Title style={styles.dialogTitle}>
-								{selectedNews.title}
-							</Dialog.Title>
-							<Dialog.Content style={styles.dialogContent}>
-								<ScrollView style={styles.dialogScroll} showsVerticalScrollIndicator={false}>
-									<ImageBackground
-										source={{ uri: getNewsImage(selectedNews, news.findIndex(n => n.id === selectedNews.id)) }}
-										style={styles.dialogCover}
-										imageStyle={{ borderRadius: 8 }}
-									/>
-									<Text style={styles.dialogDate}>{formatDate(selectedNews.created_at)}</Text>
-									<Paragraph style={styles.dialogText}>{selectedNews.content}</Paragraph>
-								</ScrollView>
-							</Dialog.Content>
-							<Dialog.Actions style={{ paddingHorizontal: 24, paddingBottom: 16 }}>
-								<Button
-									onPress={() => setSelectedNews(null)}
-									labelStyle={{ fontFamily: FONTS.bold }}
-									textColor={COLORS.primary}
-								>
-									Zamknij
-								</Button>
-							</Dialog.Actions>
-						</View>
-					)}
+					{selectedNews && (() => {
+						const detailImages = selectedNews.images && selectedNews.images.length > 0
+							? selectedNews.images
+							: (selectedNews.image_url ? [selectedNews.image_url] : [getNewsImage(selectedNews, news.findIndex(n => n.id === selectedNews.id))]);
+
+						return (
+							<View style={{ paddingBottom: 8 }}>
+								<Dialog.Content style={{ paddingTop: 16, paddingHorizontal: 16 }}>
+									<ScrollView style={styles.dialogScroll} showsVerticalScrollIndicator={false}>
+										{/* Karuzela zdjęć (do 3 zdjęć) */}
+										<View style={styles.detailCarouselContainer}>
+											<ScrollView
+												horizontal
+												pagingEnabled
+												showsHorizontalScrollIndicator={false}
+												onScroll={(e) => {
+													const slide = Math.round(e.nativeEvent.contentOffset.x / (Dimensions.get("window").width * 0.92 - 32));
+													setCarouselIndex(slide);
+												}}
+												scrollEventThrottle={16}
+											>
+												{detailImages.map((imgUri, idx) => (
+													<Image
+														key={idx}
+														source={{ uri: imgUri }}
+														style={styles.detailCarouselImage}
+														resizeMode="cover"
+													/>
+												))}
+											</ScrollView>
+											{detailImages.length > 1 && (
+												<View style={styles.detailPagination}>
+													{detailImages.map((_, idx) => (
+														<View
+															key={idx}
+															style={[
+																styles.detailPaginationDot,
+																idx === carouselIndex && styles.detailPaginationDotActive,
+															]}
+														/>
+													))}
+												</View>
+											)}
+										</View>
+
+										{/* Tytuł PO ZDJĘCIACH */}
+										<Text style={styles.detailTitleUnderImage}>{selectedNews.title}</Text>
+										<Text style={styles.dialogDate}>{formatDate(selectedNews.created_at)}</Text>
+										<Paragraph style={styles.dialogText}>{selectedNews.content}</Paragraph>
+									</ScrollView>
+								</Dialog.Content>
+								<Dialog.Actions style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+									<Button
+										onPress={() => {
+											setSelectedNews(null);
+											setCarouselIndex(0);
+										}}
+										labelStyle={{ fontFamily: FONTS.bold }}
+										textColor={COLORS.primary}
+									>
+										Zamknij
+									</Button>
+								</Dialog.Actions>
+							</View>
+						);
+					})()}
 				</Dialog>
 			</Portal>
 
@@ -761,18 +905,23 @@ export default function NewsScreen() {
 								textColor={COLORS.textDark}
 								left={<TextInput.Icon icon="text-subject" color={COLORS.textLight} />}
 							/>
-							{imageUri ? (
-								<View style={styles.imagePreviewContainer}>
-									<Image source={{ uri: imageUri }} style={styles.imagePreview} />
-									<TouchableOpacity style={styles.removeImageButton} onPress={() => setImageUri(null)}>
-										<MaterialIcons name="delete" size={16} color={COLORS.white} />
-										<Text style={styles.removeImageText}>Usuń zdjęcie</Text>
-									</TouchableOpacity>
-								</View>
-							) : (
+							<Text style={styles.settingLabel}>Zdjęcia (maksymalnie 3):</Text>
+							{imageUris.length > 0 && (
+								<ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.multiImageRow}>
+									{imageUris.map((uri, idx) => (
+										<View key={idx} style={styles.multiImageThumbWrapper}>
+											<Image source={{ uri }} style={styles.multiImageThumb} />
+											<TouchableOpacity style={styles.multiImageRemoveBadge} onPress={() => removeImage(idx)}>
+												<Text style={styles.multiImageBadgeText}>✕</Text>
+											</TouchableOpacity>
+										</View>
+									))}
+								</ScrollView>
+							)}
+							{imageUris.length < 3 && (
 								<View style={styles.uploadZone}>
-									<Text style={styles.uploadZoneTitle}>Dodaj zdjęcie do aktualności</Text>
-									<Text style={styles.uploadZoneSubtitle}>Wymiary sugerowane 3:2 (JPG, PNG)</Text>
+									<Text style={styles.uploadZoneTitle}>Dodaj zdjęcie do aktualności ({imageUris.length}/3)</Text>
+									<Text style={styles.uploadZoneSubtitle}>Sugerowane wymiary 3:2 (JPG, PNG)</Text>
 									<View style={styles.uploadZoneButtons}>
 										<TouchableOpacity style={styles.uploadZoneBtn} onPress={takePhoto}>
 											<MaterialIcons name="photo-camera" size={20} color={COLORS.primary} />

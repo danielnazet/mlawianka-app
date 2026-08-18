@@ -534,4 +534,227 @@ export const styles = StyleSheet.create({
 		fontFamily: FONTS.bold,
 		marginTop: 4,
 	},
+
+	// League Table Styles
+	tableScrollContent: {
+		padding: 16,
+		paddingBottom: 32,
+	},
+	tableCard: {
+		backgroundColor: COLORS.white,
+		borderRadius: 16,
+		elevation: 4,
+		shadowColor: "#0f172a",
+		shadowOffset: { width: 0, height: 4 },
+		shadowOpacity: 0.08,
+		shadowRadius: 12,
+		borderWidth: 1,
+		borderColor: COLORS.border,
+		overflow: "hidden",
+	},
+	tableTitle: {
+		fontSize: 16,
+		fontFamily: FONTS.bold,
+		color: COLORS.textDark,
+		textAlign: "center",
+		marginBottom: 2,
+		marginTop: 8,
+	},
+	tableSubtitle: {
+		fontSize: 12,
+		fontFamily: FONTS.regular,
+		color: COLORS.textLight,
+		textAlign: "center",
+		marginBottom: 16,
+	},
+	tableHeaderRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		paddingVertical: 8,
+		paddingHorizontal: 12,
+		backgroundColor: "#f8fafc",
+		borderBottomWidth: 1,
+		borderBottomColor: COLORS.border,
+	},
+	tableBodyRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		paddingVertical: 10,
+		paddingHorizontal: 12,
+		borderBottomWidth: 1,
+		borderBottomColor: "#f1f5f9",
+	},
+	tableRowHighlight: {
+		backgroundColor: "#eff6ff",
+		borderBottomColor: "#bfdbfe",
+	},
+	tableCol: {
+		textAlign: "center",
+		fontSize: 13,
+	},
+	colPos: {
+		width: 24,
+	},
+	colName: {
+		flex: 2,
+		paddingLeft: 8,
+	},
+	colM: {
+		width: 32,
+	},
+	colB: {
+		width: 56,
+	},
+	colPkt: {
+		width: 38,
+	},
+	headerText: {
+		fontFamily: FONTS.bold,
+		color: COLORS.textLight,
+		fontSize: 12,
+	},
+	bodyText: {
+		fontFamily: FONTS.regular,
+		color: COLORS.textDark,
+	},
+	bodyTextBold: {
+		fontFamily: FONTS.bold,
+		color: COLORS.textDark,
+	},
+	textHighlight: {
+		color: COLORS.primary,
+		fontFamily: FONTS.regular,
+	},
+	textHighlightBold: {
+		color: COLORS.primary,
+		fontFamily: FONTS.bold,
+	},
+
+	// Custom Pill Tab Switcher
+	customTabContainer: {
+		paddingHorizontal: 16,
+		paddingTop: 12,
+		paddingBottom: 6,
+	},
+	customTabWrapper: {
+		flexDirection: "row",
+		backgroundColor: "#F1F5F9",
+		borderRadius: 14,
+		padding: 4,
+		borderWidth: 1,
+		borderColor: "#E2E8F0",
+	},
+	customTabItem: {
+		flex: 1,
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "center",
+		paddingVertical: 9,
+		borderRadius: 10,
+	},
+	customTabItemActive: {
+		backgroundColor: COLORS.primary,
+		elevation: 3,
+		shadowColor: COLORS.primary,
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.25,
+		shadowRadius: 4,
+	},
+	customTabText: {
+		fontSize: 13,
+	},
+	customTabTextActive: {
+		fontFamily: FONTS.bold,
+		color: COLORS.white,
+	},
+	customTabTextInactive: {
+		fontFamily: FONTS.semiBold,
+		color: COLORS.textLight,
+	},
+
+	// Multi-image upload preview
+	multiImageRow: {
+		flexDirection: "row",
+		marginBottom: 16,
+		marginTop: 4,
+	},
+	multiImageThumbWrapper: {
+		width: 86,
+		height: 86,
+		borderRadius: 10,
+		marginRight: 10,
+		position: "relative",
+		overflow: "visible",
+	},
+	multiImageThumb: {
+		width: 86,
+		height: 86,
+		borderRadius: 10,
+	},
+	multiImageRemoveBadge: {
+		position: "absolute",
+		top: -6,
+		right: -6,
+		backgroundColor: "#ef4444",
+		width: 22,
+		height: 22,
+		borderRadius: 11,
+		alignItems: "center",
+		justifyContent: "center",
+		elevation: 4,
+		shadowColor: "#000",
+		shadowOffset: { width: 0, height: 1 },
+		shadowOpacity: 0.3,
+		shadowRadius: 2,
+	},
+	multiImageBadgeText: {
+		color: COLORS.white,
+		fontSize: 11,
+		fontFamily: FONTS.bold,
+	},
+
+	// Detail Modal Carousel & Reordered Title
+	detailCarouselContainer: {
+		width: "100%",
+		height: 210,
+		borderRadius: 12,
+		overflow: "hidden",
+		marginBottom: 12,
+		backgroundColor: "#f1f5f9",
+		position: "relative",
+	},
+	detailCarouselImage: {
+		width: Dimensions.get("window").width * 0.92 - 32,
+		height: 210,
+		borderRadius: 12,
+	},
+	detailPagination: {
+		position: "absolute",
+		bottom: 8,
+		left: 0,
+		right: 0,
+		flexDirection: "row",
+		justifyContent: "center",
+		alignItems: "center",
+	},
+	detailPaginationDot: {
+		width: 7,
+		height: 7,
+		borderRadius: 3.5,
+		backgroundColor: "rgba(255, 255, 255, 0.5)",
+		marginHorizontal: 3,
+	},
+	detailPaginationDotActive: {
+		width: 18,
+		backgroundColor: COLORS.white,
+		borderRadius: 4,
+	},
+	detailTitleUnderImage: {
+		fontSize: 19,
+		fontFamily: FONTS.bold,
+		color: COLORS.textDark,
+		marginBottom: 4,
+		marginTop: 4,
+		lineHeight: 25,
+	},
 });
