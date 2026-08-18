@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, ImageBackground, TouchableOpacity, Alert } from "react-native";
-import { Card, Title, Paragraph, Text, Button, SegmentedButtons, Portal, Dialog, TextInput, RadioButton, HelperText, Switch } from "react-native-paper";
+import { View, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, ImageBackground, TouchableOpacity, Alert, Animated } from "react-native";
+import { Card, Title, Paragraph, Text, Button, Portal, Dialog, TextInput, RadioButton, HelperText, Switch } from "react-native-paper";
 import { router } from "expo-router";
-import { MaterialIcons } from "@expo/vector-icons";
+import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
 import Swipeable from "react-native-gesture-handler/Swipeable";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
@@ -46,6 +46,40 @@ export default function TrainingScreen() {
 	const weekdays = ["Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota", "Niedziela"];
 	const isCoachOrAdmin = profile?.role === "admin" || profile?.role === "coach";
 
+	const fadeAnim = useState(new Animated.Value(1))[0];
+	const slideAnim = useState(new Animated.Value(0))[0];
+
+	const handleTabChange = (newTab: string) => {
+		if (newTab === activeTab) return;
+		Animated.parallel([
+			Animated.timing(fadeAnim, {
+				toValue: 0,
+				duration: 120,
+				useNativeDriver: true,
+			}),
+			Animated.timing(slideAnim, {
+				toValue: -8,
+				duration: 120,
+				useNativeDriver: true,
+			})
+		]).start(() => {
+			setActiveTab(newTab);
+			slideAnim.setValue(12);
+			Animated.parallel([
+				Animated.timing(fadeAnim, {
+					toValue: 1,
+					duration: 180,
+					useNativeDriver: true,
+				}),
+				Animated.timing(slideAnim, {
+					toValue: 0,
+					duration: 180,
+					useNativeDriver: true,
+				})
+			]).start();
+		});
+	};
+
 	const fetchTeams = async () => {
 		try {
 			const { data, error } = await supabase.from("teams").select("*").order("id", { ascending: true });
@@ -57,12 +91,29 @@ export default function TrainingScreen() {
 	};
 
 	const fetchData = async () => {
-		if (!user) {
-			setLoading(false);
-			return;
-		}
 		try {
 			await fetchTeams();
+
+			if (!user) {
+				// Niezalogowani goście: pobierz mecze Głównego Zespołu Seniorów
+				const { data: allTeams } = await supabase.from("teams").select("id, name");
+				const seniorTeam = (allTeams || []).find((t) => {
+					const n = t.name.toLowerCase();
+					return n.includes("senior") || n.includes("pierwszy") || n.includes("i zespół");
+				}) || allTeams?.[0];
+
+				let matchQuery = supabase.from("matches").select("*");
+				if (seniorTeam) {
+					matchQuery = matchQuery.or(`team_id.eq.${seniorTeam.id},team_id.is.null`);
+				}
+				const { data: guestMatches, error: gmErr } = await matchQuery.order("match_date", { ascending: true });
+				if (gmErr) throw gmErr;
+
+				setMatches(guestMatches || []);
+				setTrainings([]);
+				setActiveTab("matches"); // Domyślnie dla gościa pokazywane są Mecze
+				return;
+			}
 
 			let trainingQuery = supabase.from("trainings").select("*");
 			let matchQuery = supabase.from("matches").select("*");
@@ -387,233 +438,254 @@ export default function TrainingScreen() {
 			style={styles.container}
 			imageStyle={styles.backgroundImageStyle}
 		>
-			{!user ? (
-				<View style={styles.guestContainer}>
-					<Card style={styles.guestCard}>
-						<Card.Content style={styles.guestContent}>
-							<Title style={styles.guestTitle}>Harmonogram Klubu</Title>
-							<Paragraph style={styles.guestDescription}>
-								Harmonogram treningów oraz lista meczów są dostępne wyłącznie dla zalogowanych członków klubu GKS Strzegowo.
-							</Paragraph>
+			{/* Custom Pill Tab Switcher (widoczny tylko dla zalogowanych) */}
+			{user && (
+				<View style={styles.customTabContainer}>
+					<View style={styles.customTabWrapper}>
+						{[
+							{ id: "trainings", label: "Treningi", icon: "soccer" },
+							{ id: "matches", label: "Mecze", icon: "calendar-text-outline" },
+						].map((tab) => {
+							const isActive = activeTab === tab.id;
+							return (
+								<TouchableOpacity
+									key={tab.id}
+									activeOpacity={0.85}
+									onPress={() => handleTabChange(tab.id)}
+									style={[
+										styles.customTabItem,
+										isActive && styles.customTabItemActive,
+									]}
+								>
+									<MaterialCommunityIcons
+										name={tab.icon as any}
+										size={18}
+										color={isActive ? COLORS.white : COLORS.textLight}
+										style={{ marginRight: 6 }}
+									/>
+									<Text
+										style={[
+											styles.customTabText,
+											isActive ? styles.customTabTextActive : styles.customTabTextInactive,
+										]}
+									>
+										{tab.label}
+									</Text>
+								</TouchableOpacity>
+							);
+						})}
+					</View>
+				</View>
+			)}
+
+			<Animated.View style={{ flex: 1, opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+				<ScrollView
+					contentContainerStyle={styles.scrollContainer}
+					refreshControl={
+						<RefreshControl
+							refreshing={refreshing}
+							onRefresh={onRefresh}
+							colors={[COLORS.primary]}
+						/>
+					}
+				>
+					{isCoachOrAdmin && (
+						<Button
+							mode="contained"
+							icon="plus"
+							onPress={openAddDialog}
+							style={styles.addButton}
+							labelStyle={styles.addButtonLabel}
+						>
+							Dodaj wydarzenie
+						</Button>
+					)}
+
+					{!user && (
+						<Card style={styles.guestInfoBanner}>
+							<View style={styles.guestInfoRow}>
+								<View style={styles.guestIconCircle}>
+									<MaterialCommunityIcons name="account-key-outline" size={24} color={COLORS.primary} />
+								</View>
+								<View style={styles.guestTextContainer}>
+									<Text style={styles.guestBannerTitle}>Chcesz zobaczyć grafik treningów i ogłoszenia?</Text>
+									<Text style={styles.guestBannerSubtitle}>
+										Zaloguj się na konto członka klubu GKS Strzegowo, aby uzyskać dostęp do pełnego terminarza, grafiku Orlika, ogłoszeń oraz czatu!
+									</Text>
+								</View>
+							</View>
 							<Button
 								mode="contained"
 								onPress={() => router.push("/auth/login")}
-								style={styles.guestButton}
-								labelStyle={styles.guestButtonLabel}
+								style={styles.guestLoginBtn}
+								labelStyle={styles.guestLoginBtnLabel}
+								icon="login"
 							>
 								Zaloguj się
 							</Button>
-						</Card.Content>
-					</Card>
-				</View>
-			) : (
-				<>
-					<View style={styles.tabContainer}>
-						<SegmentedButtons
-							value={activeTab}
-							onValueChange={setActiveTab}
-							buttons={[
-								{
-									value: "trainings",
-									label: "Treningi",
-									icon: "soccer",
-									checkedColor: COLORS.white,
-									style: activeTab === "trainings" ? styles.activeTabButton : styles.inactiveTabButton,
-								},
-								{
-									value: "matches",
-									label: "Mecze",
-									icon: "calendar",
-									checkedColor: COLORS.white,
-									style: activeTab === "matches" ? styles.activeTabButton : styles.inactiveTabButton,
-								},
-							]}
-						/>
-					</View>
+						</Card>
+					)}
 
-					<ScrollView
-						contentContainerStyle={styles.scrollContainer}
-						refreshControl={
-							<RefreshControl
-								refreshing={refreshing}
-								onRefresh={onRefresh}
-								colors={[COLORS.primary]}
-							/>
-						}
-					>
-						{isCoachOrAdmin && (
-							<Button
-								mode="contained"
-								icon="plus"
-								onPress={openAddDialog}
-								style={styles.addButton}
-								labelStyle={styles.addButtonLabel}
-							>
-								Dodaj wydarzenie
-							</Button>
-						)}
-
-						{activeTab === "trainings" ? (
-							trainings.length === 0 ? (
-								<View style={styles.emptyContainer}>
-									<Text style={styles.emptyText}>Brak zaplanowanych treningów.</Text>
-								</View>
-							) : (
-								trainings.map((training) => {
-									let swipeableRef: Swipeable | null = null;
-									const renderRightActions = () => (
-										<View style={styles.swipeActionsContainer}>
-											<TouchableOpacity
-												style={[styles.swipeActionBtn, styles.editActionBtn]}
-												onPress={() => {
-													swipeableRef?.close();
-													openEditDialog(training, "training");
-												}}
-											>
-												<MaterialIcons name="edit" size={22} color={COLORS.white} />
-												<Text style={styles.swipeActionText}>Edytuj</Text>
-											</TouchableOpacity>
-											<TouchableOpacity
-												style={[styles.swipeActionBtn, styles.deleteActionBtn]}
-												onPress={() => {
-													swipeableRef?.close();
-													confirmDeleteEvent(training.id, "training");
-												}}
-											>
-												<MaterialIcons name="delete" size={22} color={COLORS.white} />
-												<Text style={styles.swipeActionText}>Usuń</Text>
-											</TouchableOpacity>
-										</View>
-									);
-
-									const cardContent = (
-										<Card style={styles.card}>
-											<Card.Content>
-												<View style={styles.cardHeader}>
-													<Title style={styles.title}>{training.title}</Title>
-													<Text style={styles.groupBadge}>{getTeamName(training.team_id)}</Text>
-												</View>
-												{training.description ? (
-													<Paragraph style={styles.description}>
-														{training.description}
-													</Paragraph>
-												) : null}
-												<View style={styles.infoRow}>
-													<Text style={styles.infoLabel}>Trener:</Text>
-													<Text style={styles.infoValue}>{training.coach}</Text>
-												</View>
-												<View style={styles.infoRow}>
-													<Text style={styles.infoLabel}>Termin:</Text>
-													<Text style={styles.infoValue}>{training.time}</Text>
-												</View>
-												<View style={styles.infoRow}>
-													<Text style={styles.infoLabel}>Miejsce:</Text>
-													<Text style={styles.infoValue}>{training.location}</Text>
-												</View>
-											</Card.Content>
-										</Card>
-									);
-
-									if (isCoachOrAdmin) {
-										return (
-											<View key={training.id} style={{ marginBottom: 16 }}>
-												<Swipeable
-													ref={ref => { swipeableRef = ref; }}
-													renderRightActions={renderRightActions}
-													friction={2}
-													rightThreshold={40}
-												>
-													<View style={{ marginBottom: -16, overflow: "hidden" }}>
-														{cardContent}
-													</View>
-												</Swipeable>
-											</View>
-										);
-									}
-									return <View key={training.id}>{cardContent}</View>;
-								})
-							)
+					{user && activeTab === "trainings" ? (
+						trainings.length === 0 ? (
+							<View style={styles.emptyContainer}>
+								<Text style={styles.emptyText}>Brak zaplanowanych treningów.</Text>
+							</View>
 						) : (
-							matches.length === 0 ? (
-								<View style={styles.emptyContainer}>
-									<Text style={styles.emptyText}>Brak zaplanowanych meczów.</Text>
-								</View>
-							) : (
-								matches.map((match) => {
-									let swipeableRef: Swipeable | null = null;
-									const renderRightActions = () => (
-										<View style={styles.swipeActionsContainer}>
-											<TouchableOpacity
-												style={[styles.swipeActionBtn, styles.editActionBtn]}
-												onPress={() => {
-													swipeableRef?.close();
-													openEditDialog(match, "match");
-												}}
+							trainings.map((training) => {
+								let swipeableRef: Swipeable | null = null;
+								const renderRightActions = () => (
+									<View style={styles.swipeActionsContainer}>
+										<TouchableOpacity
+											style={[styles.swipeActionBtn, styles.editActionBtn]}
+											onPress={() => {
+												swipeableRef?.close();
+												openEditDialog(training, "training");
+											}}
+										>
+											<MaterialIcons name="edit" size={22} color={COLORS.white} />
+											<Text style={styles.swipeActionText}>Edytuj</Text>
+										</TouchableOpacity>
+										<TouchableOpacity
+											style={[styles.swipeActionBtn, styles.deleteActionBtn]}
+											onPress={() => {
+												swipeableRef?.close();
+												confirmDeleteEvent(training.id, "training");
+											}}
+										>
+											<MaterialIcons name="delete" size={22} color={COLORS.white} />
+											<Text style={styles.swipeActionText}>Usuń</Text>
+										</TouchableOpacity>
+									</View>
+								);
+
+								const cardContent = (
+									<Card style={styles.card}>
+										<Card.Content>
+											<View style={styles.cardHeader}>
+												<Title style={styles.title}>{training.title}</Title>
+												<Text style={styles.groupBadge}>{getTeamName(training.team_id)}</Text>
+											</View>
+											{training.description ? (
+												<Paragraph style={styles.description}>
+													{training.description}
+												</Paragraph>
+											) : null}
+											<View style={styles.infoRow}>
+												<Text style={styles.infoLabel}>Trener:</Text>
+												<Text style={styles.infoValue}>{training.coach}</Text>
+											</View>
+											<View style={styles.infoRow}>
+												<Text style={styles.infoLabel}>Termin:</Text>
+												<Text style={styles.infoValue}>{training.time}</Text>
+											</View>
+											<View style={styles.infoRow}>
+												<Text style={styles.infoLabel}>Miejsce:</Text>
+												<Text style={styles.infoValue}>{training.location}</Text>
+											</View>
+										</Card.Content>
+									</Card>
+								);
+
+								if (isCoachOrAdmin) {
+									return (
+										<View key={training.id} style={{ marginBottom: 16 }}>
+											<Swipeable
+												ref={ref => { swipeableRef = ref; }}
+												renderRightActions={renderRightActions}
+												friction={2}
+												rightThreshold={40}
 											>
-												<MaterialIcons name="edit" size={22} color={COLORS.white} />
-												<Text style={styles.swipeActionText}>Edytuj</Text>
-											</TouchableOpacity>
-											<TouchableOpacity
-												style={[styles.swipeActionBtn, styles.deleteActionBtn]}
-												onPress={() => {
-													swipeableRef?.close();
-													confirmDeleteEvent(match.id, "match");
-												}}
-											>
-												<MaterialIcons name="delete" size={22} color={COLORS.white} />
-												<Text style={styles.swipeActionText}>Usuń</Text>
-											</TouchableOpacity>
+												<View style={{ marginBottom: -16, overflow: "hidden" }}>
+													{cardContent}
+												</View>
+											</Swipeable>
 										</View>
 									);
+								}
+								return <View key={training.id}>{cardContent}</View>;
+							})
+						)
+					) : (
+						matches.length === 0 ? (
+							<View style={styles.emptyContainer}>
+								<Text style={styles.emptyText}>Brak zaplanowanych meczów.</Text>
+							</View>
+						) : (
+							matches.map((match) => {
+								let swipeableRef: Swipeable | null = null;
+								const renderRightActions = () => (
+									<View style={styles.swipeActionsContainer}>
+										<TouchableOpacity
+											style={[styles.swipeActionBtn, styles.editActionBtn]}
+											onPress={() => {
+												swipeableRef?.close();
+												openEditDialog(match, "match");
+											}}
+										>
+											<MaterialIcons name="edit" size={22} color={COLORS.white} />
+											<Text style={styles.swipeActionText}>Edytuj</Text>
+										</TouchableOpacity>
+										<TouchableOpacity
+											style={[styles.swipeActionBtn, styles.deleteActionBtn]}
+											onPress={() => {
+												swipeableRef?.close();
+												confirmDeleteEvent(match.id, "match");
+											}}
+										>
+											<MaterialIcons name="delete" size={22} color={COLORS.white} />
+											<Text style={styles.swipeActionText}>Usuń</Text>
+										</TouchableOpacity>
+									</View>
+								);
 
-									const cardContent = (
-										<Card style={[styles.card, styles.matchCard]}>
-											<Card.Content>
-												<View style={styles.cardHeader}>
-													<Title style={styles.title}>GKS Strzegowo vs {match.opponent}</Title>
-													<Text style={styles.matchBadge}>{getTeamName(match.team_id)}</Text>
-												</View>
-												<View style={styles.infoRow}>
-													<Text style={styles.infoLabel}>Termin:</Text>
-													<Text style={styles.infoValue}>{formatDate(match.match_date)}</Text>
-												</View>
-												<View style={styles.infoRow}>
-													<Text style={styles.infoLabel}>Miejsce:</Text>
-													<Text style={styles.infoValue}>{match.location}</Text>
-												</View>
-												<View style={styles.resultRow}>
-													<Text style={styles.resultLabel}>Wynik:</Text>
-													<Text style={styles.resultValue}>
-														{match.result ? match.result : "Nadchodzący"}
-													</Text>
-												</View>
-											</Card.Content>
-										</Card>
-									);
-
-									if (isCoachOrAdmin) {
-										return (
-											<View key={match.id} style={{ marginBottom: 16 }}>
-												<Swipeable
-													ref={ref => { swipeableRef = ref; }}
-													renderRightActions={renderRightActions}
-													friction={2}
-													rightThreshold={40}
-												>
-													<View style={{ marginBottom: -16, overflow: "hidden" }}>
-														{cardContent}
-													</View>
-												</Swipeable>
+								const cardContent = (
+									<Card style={[styles.card, styles.matchCard]}>
+										<Card.Content>
+											<View style={styles.cardHeader}>
+												<Title style={styles.title}>GKS Strzegowo vs {match.opponent}</Title>
+												<Text style={styles.matchBadge}>{getTeamName(match.team_id)}</Text>
 											</View>
-										);
-									}
-									return <View key={match.id}>{cardContent}</View>;
-								})
-							)
-						)}
-					</ScrollView>
-				</>
-			)}
+											<View style={styles.infoRow}>
+												<Text style={styles.infoLabel}>Termin:</Text>
+												<Text style={styles.infoValue}>{formatDate(match.match_date)}</Text>
+											</View>
+											<View style={styles.infoRow}>
+												<Text style={styles.infoLabel}>Miejsce:</Text>
+												<Text style={styles.infoValue}>{match.location}</Text>
+											</View>
+											<View style={styles.resultRow}>
+												<Text style={styles.resultLabel}>Wynik:</Text>
+												<Text style={styles.resultValue}>
+													{match.result ? match.result : "Nadchodzący"}
+												</Text>
+											</View>
+										</Card.Content>
+									</Card>
+								);
+
+								if (isCoachOrAdmin) {
+									return (
+										<View key={match.id} style={{ marginBottom: 16 }}>
+											<Swipeable
+												ref={ref => { swipeableRef = ref; }}
+												renderRightActions={renderRightActions}
+												friction={2}
+												rightThreshold={40}
+											>
+												<View style={{ marginBottom: -16, overflow: "hidden" }}>
+													{cardContent}
+												</View>
+											</Swipeable>
+										</View>
+									);
+								}
+								return <View key={match.id}>{cardContent}</View>;
+							})
+						)
+					)}
+				</ScrollView>
+			</Animated.View>
 
 			{/* Modal formularza dodawania/edycji wydarzenia */}
 			<Portal>
@@ -890,7 +962,7 @@ const styles = StyleSheet.create({
 		overflow: "hidden",
 	},
 	matchCard: {
-		borderLeftColor: COLORS.success,
+		borderLeftColor: COLORS.primary,
 	},
 	cardHeader: {
 		flexDirection: "row",
@@ -917,8 +989,8 @@ const styles = StyleSheet.create({
 	matchBadge: {
 		fontSize: 10,
 		fontFamily: FONTS.bold,
-		color: COLORS.success,
-		backgroundColor: "#e6fbf3",
+		color: COLORS.primary,
+		backgroundColor: COLORS.primaryLight,
 		paddingHorizontal: 8,
 		paddingVertical: 2,
 		borderRadius: 4,
@@ -962,7 +1034,7 @@ const styles = StyleSheet.create({
 		fontSize: 14,
 	},
 	resultValue: {
-		color: COLORS.success,
+		color: COLORS.primary,
 		fontSize: 14,
 		fontFamily: FONTS.bold,
 	},
@@ -1162,5 +1234,101 @@ const styles = StyleSheet.create({
 		color: COLORS.textDark,
 		marginLeft: 8,
 		fontFamily: FONTS.regular,
+	},
+
+	// Custom Pill Tab Switcher (Outfit fonts)
+	customTabContainer: {
+		paddingHorizontal: 16,
+		paddingTop: 16,
+		paddingBottom: 8,
+	},
+	customTabWrapper: {
+		flexDirection: "row",
+		backgroundColor: "#F1F5F9",
+		borderRadius: 14,
+		padding: 4,
+		borderWidth: 1,
+		borderColor: "#E2E8F0",
+	},
+	customTabItem: {
+		flex: 1,
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "center",
+		paddingVertical: 9,
+		borderRadius: 10,
+	},
+	customTabItemActive: {
+		backgroundColor: COLORS.primary,
+		elevation: 3,
+		shadowColor: COLORS.primary,
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.25,
+		shadowRadius: 4,
+	},
+	customTabText: {
+		fontSize: 13,
+	},
+	customTabTextActive: {
+		fontFamily: FONTS.bold,
+		color: COLORS.white,
+	},
+	customTabTextInactive: {
+		fontFamily: FONTS.semiBold,
+		color: COLORS.textLight,
+	},
+
+	// Guest Info Banner
+	guestInfoBanner: {
+		backgroundColor: COLORS.white,
+		borderRadius: 16,
+		padding: 16,
+		marginBottom: 16,
+		marginTop: 8,
+		borderWidth: 1,
+		borderColor: "#e2e8f0",
+		elevation: 2,
+		shadowColor: COLORS.primary,
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.08,
+		shadowRadius: 6,
+	},
+	guestInfoRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		marginBottom: 12,
+	},
+	guestIconCircle: {
+		width: 44,
+		height: 44,
+		borderRadius: 22,
+		backgroundColor: COLORS.primaryLight,
+		alignItems: "center",
+		justifyContent: "center",
+		marginRight: 12,
+	},
+	guestTextContainer: {
+		flex: 1,
+	},
+	guestBannerTitle: {
+		fontSize: 15,
+		fontFamily: FONTS.bold,
+		color: COLORS.textDark,
+		marginBottom: 2,
+	},
+	guestBannerSubtitle: {
+		fontSize: 12,
+		fontFamily: FONTS.regular,
+		color: COLORS.textLight,
+		lineHeight: 16,
+	},
+	guestLoginBtn: {
+		backgroundColor: COLORS.primary,
+		borderRadius: 10,
+	},
+	guestLoginBtnLabel: {
+		fontFamily: FONTS.bold,
+		color: COLORS.white,
+		fontSize: 13,
 	},
 });

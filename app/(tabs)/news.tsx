@@ -87,7 +87,7 @@ export default function NewsScreen() {
 		]).start(() => {
 			// 2. Po zaniknięciu podmieniamy zakładkę w tle
 			setActiveTab(newTab);
-			
+
 			// Pozycja startowa pojawiania się (wsuwanie z dołu)
 			slideAnim.setValue(12);
 
@@ -204,7 +204,7 @@ export default function NewsScreen() {
 			});
 			arrayBuffer = decode(base64);
 		}
-		
+
 		const fileExt = uri.split('.').pop() || 'jpg';
 		const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
 		const filePath = fileName;
@@ -266,22 +266,22 @@ export default function NewsScreen() {
 	const handleDeleteNews = async (id: number) => {
 		try {
 			setLoading(true);
-			
+
 			// Pobierz informację o newsie, żeby sprawdzić czy ma przypisany obrazek w Storage
 			const { data: itemData } = await supabase
 				.from("news")
 				.select("image_url")
 				.eq("id", id)
 				.single();
-				
+
 			// Usuń rekord z bazy danych
 			const { error } = await supabase
 				.from("news")
 				.delete()
 				.eq("id", id);
-				
+
 			if (error) throw error;
-			
+
 			// Jeśli news miał obrazek i nie był to Picsum/Unsplash, usuń go również ze Storage
 			if (itemData?.image_url && itemData.image_url.includes("news-images/")) {
 				try {
@@ -293,7 +293,7 @@ export default function NewsScreen() {
 					console.warn("Błąd usuwania pliku ze storage:", e);
 				}
 			}
-			
+
 			fetchData();
 		} catch (err: any) {
 			console.error("Error deleting news:", err);
@@ -400,7 +400,7 @@ export default function NewsScreen() {
 	const fetchData = async () => {
 		try {
 			setLoading(true);
-			
+
 			// 1. Pobierz aktualności (najważniejsze pierwsze, potem według daty)
 			const { data: newsData, error: newsError } = await supabase
 				.from("news")
@@ -510,7 +510,7 @@ export default function NewsScreen() {
 	const renderNewsItem = ({ item, index }: { item: NewsItem; index: number }) => {
 		const imageUrl = getNewsImage(item, index);
 		let swipeableRef: Swipeable | null = null;
-		
+
 		const renderRightActions = (isFeatured: boolean) => (progress: any, dragX: any) => {
 			return (
 				<View style={isFeatured ? styles.swipeActionsContainerFeatured : styles.swipeActionsContainerSmall}>
@@ -668,7 +668,7 @@ export default function NewsScreen() {
 					<Card.Content style={{ paddingHorizontal: 0, paddingVertical: 12 }}>
 						<Title style={styles.tableTitle}>Liga Okręgowa - Ciechanów-Ostrołęka</Title>
 						<Text style={styles.tableSubtitle}>Sezon 2026/2027 (Źródło: RegioWyniki)</Text>
-						
+
 						{/* Nagłówek Tabeli */}
 						<View style={styles.tableHeaderRow}>
 							<Text style={[styles.tableCol, styles.colPos, styles.headerText]}>#</Text>
@@ -1005,7 +1005,7 @@ export default function NewsScreen() {
 										color={COLORS.primary}
 									/>
 								</View>
-								
+
 								<View style={[styles.settingRow, { borderTopWidth: 1, borderColor: COLORS.border }]}>
 									<View style={styles.settingTextContainer}>
 										<Text style={styles.settingLabel}>Wiadomość najważniejsza</Text>
@@ -1079,7 +1079,7 @@ export default function NewsScreen() {
 								textColor={COLORS.textDark}
 								left={<TextInput.Icon icon="text-subject" color={COLORS.textLight} />}
 							/>
-							
+
 							{(profile?.role === "admin" || profile?.role === "coach") && (
 								<View style={styles.pickerContainer}>
 									<Text style={styles.pickerLabel}>Odbiorcy (Możesz zaznaczyć wiele grup):</Text>
@@ -1099,8 +1099,8 @@ export default function NewsScreen() {
 													{selectedTeamIds.length === 0
 														? "Wszyscy (Ogłoszenie Ogólne)"
 														: selectedTeamIds.length === 1
-														? (teams.find(t => t.id.toString() === selectedTeamIds[0])?.name || "Wybrana grupa")
-														: `${selectedTeamIds.length} wybrane grupy`}
+															? (teams.find(t => t.id.toString() === selectedTeamIds[0])?.name || "Wybrana grupa")
+															: `${selectedTeamIds.length} wybrane grupy`}
 												</Text>
 												<MaterialIcons name="arrow-drop-down" size={26} color={COLORS.textLight} />
 											</TouchableOpacity>
@@ -1175,7 +1175,7 @@ export default function NewsScreen() {
 															labelStyle={{ fontFamily: FONTS.bold, color: COLORS.white }}
 															style={{ backgroundColor: COLORS.primary }}
 														>
-															Zatwierdź wybór
+															Zatwierdź
 														</Button>
 													</Dialog.Actions>
 												</Dialog>

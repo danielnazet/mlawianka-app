@@ -302,27 +302,41 @@ export default function BookingScreen() {
 				</View>
 			) : (
 				<>
-					<View style={styles.tabContainer}>
-						<SegmentedButtons
-							value={activeTab}
-							onValueChange={setActiveTab}
-							buttons={[
-								{
-									value: "trainings",
-									label: "Zapisy na treningi",
-									icon: "soccer",
-									checkedColor: COLORS.white,
-									style: activeTab === "trainings" ? styles.activeTabButton : styles.inactiveTabButton,
-								},
-								{
-									value: "orlik",
-									label: "Grafik Orlika",
-									icon: "calendar-clock",
-									checkedColor: COLORS.white,
-									style: activeTab === "orlik" ? styles.activeTabButton : styles.inactiveTabButton,
-								},
-							]}
-						/>
+					<View style={styles.customTabContainer}>
+						<View style={styles.customTabWrapper}>
+							{[
+								{ id: "trainings", label: "Zapisy na treningi", icon: "soccer" },
+								{ id: "orlik", label: "Grafik Orlika", icon: "calendar-clock" },
+							].map((tab) => {
+								const isActive = activeTab === tab.id;
+								return (
+									<TouchableOpacity
+										key={tab.id}
+										activeOpacity={0.85}
+										onPress={() => setActiveTab(tab.id)}
+										style={[
+											styles.customTabItem,
+											isActive && styles.customTabItemActive,
+										]}
+									>
+										<MaterialCommunityIcons
+											name={tab.icon as any}
+											size={18}
+											color={isActive ? COLORS.white : COLORS.textLight}
+											style={{ marginRight: 6 }}
+										/>
+										<Text
+											style={[
+												styles.customTabText,
+												isActive ? styles.customTabTextActive : styles.customTabTextInactive,
+											]}
+										>
+											{tab.label}
+										</Text>
+									</TouchableOpacity>
+								);
+							})}
+						</View>
 					</View>
 
 					<ScrollView
@@ -629,7 +643,7 @@ const styles = StyleSheet.create({
 	},
 	orlikCard: {
 		borderLeftWidth: 4,
-		borderLeftColor: COLORS.success,
+		borderLeftColor: COLORS.primary,
 	},
 	headerRow: {
 		flexDirection: "row",
@@ -639,7 +653,7 @@ const styles = StyleSheet.create({
 		backgroundColor: COLORS.primary,
 	},
 	orlikAvatarIcon: {
-		backgroundColor: COLORS.success,
+		backgroundColor: COLORS.primary,
 	},
 	headerTextContainer: {
 		marginLeft: 12,
@@ -730,8 +744,8 @@ const styles = StyleSheet.create({
 	},
 	orlikDateBadge: {
 		fontSize: 10,
-		color: COLORS.success,
-		backgroundColor: "#e6fbf3",
+		color: COLORS.primary,
+		backgroundColor: COLORS.primaryLight,
 		paddingHorizontal: 8,
 		paddingVertical: 2,
 		borderRadius: 4,
@@ -854,5 +868,47 @@ const styles = StyleSheet.create({
 		fontSize: 11,
 		fontFamily: FONTS.bold,
 		marginTop: 4,
+	},
+
+	// Custom Pill Tab Switcher (Outfit fonts)
+	customTabContainer: {
+		paddingHorizontal: 16,
+		paddingTop: 16,
+		paddingBottom: 8,
+	},
+	customTabWrapper: {
+		flexDirection: "row",
+		backgroundColor: "#F1F5F9",
+		borderRadius: 14,
+		padding: 4,
+		borderWidth: 1,
+		borderColor: "#E2E8F0",
+	},
+	customTabItem: {
+		flex: 1,
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "center",
+		paddingVertical: 9,
+		borderRadius: 10,
+	},
+	customTabItemActive: {
+		backgroundColor: COLORS.primary,
+		elevation: 3,
+		shadowColor: COLORS.primary,
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.25,
+		shadowRadius: 4,
+	},
+	customTabText: {
+		fontSize: 13,
+	},
+	customTabTextActive: {
+		fontFamily: FONTS.bold,
+		color: COLORS.white,
+	},
+	customTabTextInactive: {
+		fontFamily: FONTS.semiBold,
+		color: COLORS.textLight,
 	},
 });
