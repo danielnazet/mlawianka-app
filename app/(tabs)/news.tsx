@@ -63,7 +63,8 @@ export default function NewsScreen() {
 	const [editNewsId, setEditNewsId] = useState<number | null>(null);
 	const [announcementTitle, setAnnouncementTitle] = useState("");
 	const [announcementContent, setAnnouncementContent] = useState("");
-	const [announcementTeamId, setAnnouncementTeamId] = useState("");
+	const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([]);
+	const [teamMenuVisible, setTeamMenuVisible] = useState(false);
 	const [teams, setTeams] = useState<Team[]>([]);
 	const fadeAnim = useState(new Animated.Value(1))[0];
 	const slideAnim = useState(new Animated.Value(0))[0];
@@ -369,10 +370,14 @@ export default function NewsScreen() {
 		}
 
 		try {
+			const targetIds = selectedTeamIds.map((id) => parseInt(id)).filter((id) => !isNaN(id));
+			const primaryTeamId = targetIds.length > 0 ? targetIds[0] : null;
+
 			const { error } = await supabase.from("announcements").insert([
 				{
 					sender_id: user?.id,
-					team_id: announcementTeamId ? parseInt(announcementTeamId) : null,
+					team_id: primaryTeamId,
+					target_team_ids: targetIds.length > 0 ? targetIds : null,
 					title: announcementTitle.trim(),
 					content: announcementContent.trim(),
 				},
@@ -382,7 +387,7 @@ export default function NewsScreen() {
 
 			setAnnouncementTitle("");
 			setAnnouncementContent("");
-			setAnnouncementTeamId("");
+			setSelectedTeamIds([]);
 			setIsAddAnnouncementVisible(false);
 
 			fetchData();
@@ -425,7 +430,7 @@ export default function NewsScreen() {
 				if (profile && profile.role !== "admin" && profile.role !== "coach") {
 					const userTeamId = profile.team_id;
 					if (userTeamId) {
-						query = query.or(`team_id.is.null,team_id.eq.${userTeamId}`);
+						query = query.or(`team_id.is.null,team_id.eq.${userTeamId},target_team_ids.cs.{${userTeamId}}`);
 					} else {
 						query = query.is("team_id", null);
 					}
@@ -450,12 +455,37 @@ export default function NewsScreen() {
 		fetchData();
 	}, [user, profile]);
 
+	const sortTeamsOrdered = (teamsList: Team[]) => {
+		return [...teamsList].sort((a, b) => {
+			const nameA = a.name.toLowerCase();
+			const nameB = b.name.toLowerCase();
+
+			// 1. Pierwszy Zespół / Seniorzy zawsze na samej górze
+			const isSeniorA = nameA.includes("senior") || nameA.includes("pierwszy") || nameA.includes("i zespół");
+			const isSeniorB = nameB.includes("senior") || nameB.includes("pierwszy") || nameB.includes("i zespół");
+			if (isSeniorA && !isSeniorB) return -1;
+			if (!isSeniorA && isSeniorB) return 1;
+
+			// 2. Wyciąganie wieku z roczników U-XX (np. U-19 przed U-15 przed U-10 -> starszaki przed najmłodszymi)
+			const matchA = nameA.match(/u-?(\d+)/i);
+			const matchB = nameB.match(/u-?(\d+)/i);
+
+			if (matchA && matchB) {
+				return parseInt(matchB[1]) - parseInt(matchA[1]);
+			}
+			if (matchA && !matchB) return -1;
+			if (!matchA && matchB) return 1;
+
+			return nameA.localeCompare(nameB, "pl");
+		});
+	};
+
 	const getVisibleTeamsForAnnouncement = () => {
 		if (profile?.role === "admin") {
-			return teams;
+			return sortTeamsOrdered(teams);
 		}
 		if (profile?.role === "coach") {
-			return teams.filter(t => t.coach_id === user?.id);
+			return sortTeamsOrdered(teams.filter(t => t.coach_id === user?.id));
 		}
 		return [];
 	};
@@ -736,18 +766,18 @@ export default function NewsScreen() {
 	const renderEmojiSelector = (onSelectEmoji: (emoji: string) => void) => (
 		<View style={styles.emojiBarContainer}>
 			<Text style={styles.emojiBarLabel}>Szybkie emotki:</Text>
-			<ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.emojiScroll}>
+			<View style={styles.emojiGridWrapper}>
 				{EMOJI_LIST.map((emoji, idx) => (
 					<TouchableOpacity
 						key={idx}
 						activeOpacity={0.7}
-						style={styles.emojiChip}
+						style={styles.emojiGridChip}
 						onPress={() => onSelectEmoji(emoji)}
 					>
 						<Text style={styles.emojiText}>{emoji}</Text>
 					</TouchableOpacity>
 				))}
-			</ScrollView>
+			</View>
 		</View>
 	);
 
@@ -1052,43 +1082,105 @@ export default function NewsScreen() {
 							
 							{(profile?.role === "admin" || profile?.role === "coach") && (
 								<View style={styles.pickerContainer}>
-									<Text style={styles.pickerLabel}>Odbiorcy (Zespół):</Text>
+									<Text style={styles.pickerLabel}>Odbiorcy (Możesz zaznaczyć wiele grup):</Text>
 									{profile?.role === "coach" && getVisibleTeamsForAnnouncement().length === 0 ? (
 										<Text style={{ color: COLORS.error, fontSize: 13, fontFamily: FONTS.bold, marginTop: 4 }}>
 											Brak przypisanych grup. Skontaktuj się z administratorem.
 										</Text>
 									) : (
-										<ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.teamChipsScroll}>
-											{profile?.role === "admin" && (
-												<TouchableOpacity
-													style={[
-														styles.teamChip,
-														!announcementTeamId && styles.teamChipActive
-													]}
-													onPress={() => setAnnouncementTeamId("")}
+										<View>
+											<TouchableOpacity
+												style={styles.dropdownSelector}
+												activeOpacity={0.8}
+												onPress={() => setTeamMenuVisible(true)}
+											>
+												<MaterialIcons name="groups" size={22} color={COLORS.primary} />
+												<Text style={styles.dropdownSelectorText}>
+													{selectedTeamIds.length === 0
+														? "Wszyscy (Ogłoszenie Ogólne)"
+														: selectedTeamIds.length === 1
+														? (teams.find(t => t.id.toString() === selectedTeamIds[0])?.name || "Wybrana grupa")
+														: `${selectedTeamIds.length} wybrane grupy`}
+												</Text>
+												<MaterialIcons name="arrow-drop-down" size={26} color={COLORS.textLight} />
+											</TouchableOpacity>
+
+											{/* Modal wyboru grupy odbiorców z możliwością wyboru wielu */}
+											<Portal>
+												<Dialog
+													visible={teamMenuVisible}
+													onDismiss={() => setTeamMenuVisible(false)}
+													style={styles.dialogContainer}
 												>
-													<Text style={[
-														styles.teamChipText,
-														!announcementTeamId && styles.teamChipTextActive
-													]}>Wszyscy</Text>
-												</TouchableOpacity>
-											)}
-											{getVisibleTeamsForAnnouncement().map(t => (
-												<TouchableOpacity
-													key={t.id}
-													style={[
-														styles.teamChip,
-														announcementTeamId === t.id.toString() && styles.teamChipActive
-													]}
-													onPress={() => setAnnouncementTeamId(t.id.toString())}
-												>
-													<Text style={[
-														styles.teamChipText,
-														announcementTeamId === t.id.toString() && styles.teamChipTextActive
-													]}>{t.name}</Text>
-												</TouchableOpacity>
-											))}
-										</ScrollView>
+													<Dialog.Title style={styles.dialogTitle}>Wybierz grupy odbiorców</Dialog.Title>
+													<Dialog.Content style={{ paddingHorizontal: 16 }}>
+														<ScrollView style={{ maxHeight: 280 }} showsVerticalScrollIndicator={false}>
+															{profile?.role === "admin" && (
+																<TouchableOpacity
+																	style={[
+																		styles.dropdownOption,
+																		selectedTeamIds.length === 0 && styles.dropdownOptionActive
+																	]}
+																	onPress={() => setSelectedTeamIds([])}
+																>
+																	<MaterialIcons name="public" size={20} color={selectedTeamIds.length === 0 ? COLORS.primary : COLORS.textLight} />
+																	<Text style={[
+																		styles.dropdownOptionText,
+																		selectedTeamIds.length === 0 && styles.dropdownOptionTextActive
+																	]}>
+																		Wszyscy (Ogłoszenie Ogólne)
+																	</Text>
+																	{selectedTeamIds.length === 0 && <MaterialIcons name="check" size={20} color={COLORS.primary} />}
+																</TouchableOpacity>
+															)}
+
+															{getVisibleTeamsForAnnouncement().map((t) => {
+																const teamIdStr = t.id.toString();
+																const isSelected = selectedTeamIds.includes(teamIdStr);
+																return (
+																	<TouchableOpacity
+																		key={t.id}
+																		style={[
+																			styles.dropdownOption,
+																			isSelected && styles.dropdownOptionActive
+																		]}
+																		onPress={() => {
+																			setSelectedTeamIds((prev) =>
+																				prev.includes(teamIdStr)
+																					? prev.filter((id) => id !== teamIdStr)
+																					: [...prev, teamIdStr]
+																			);
+																		}}
+																	>
+																		<MaterialIcons
+																			name={isSelected ? "check-box" : "check-box-outline-blank"}
+																			size={20}
+																			color={isSelected ? COLORS.primary : COLORS.textLight}
+																		/>
+																		<Text style={[
+																			styles.dropdownOptionText,
+																			isSelected && styles.dropdownOptionTextActive
+																		]}>
+																			{t.name}
+																		</Text>
+																	</TouchableOpacity>
+																);
+															})}
+														</ScrollView>
+													</Dialog.Content>
+													<Dialog.Actions>
+														<Button
+															mode="contained"
+															onPress={() => setTeamMenuVisible(false)}
+															labelStyle={{ fontFamily: FONTS.bold, color: COLORS.white }}
+															style={{ backgroundColor: COLORS.primary }}
+														>
+															Zatwierdź wybór
+														</Button>
+													</Dialog.Actions>
+												</Dialog>
+											</Portal>
+										</View>
 									)}
 								</View>
 							)}
@@ -1130,9 +1222,9 @@ export default function NewsScreen() {
 							if (profile?.role === "coach") {
 								const coachTeamsList = teams.filter(t => t.coach_id === user?.id);
 								if (coachTeamsList.length > 0) {
-									setAnnouncementTeamId(coachTeamsList[0].id.toString());
+									setSelectedTeamIds([coachTeamsList[0].id.toString()]);
 								} else {
-									setAnnouncementTeamId("");
+									setSelectedTeamIds([]);
 								}
 							}
 							setIsAddAnnouncementVisible(true);

@@ -19,4 +19,5 @@ export interface AnnouncementItem {
 		last_name: string;
 	} | null;
 	team_id: number | null;
+	target_team_ids?: number[] | null;
 }
