@@ -267,16 +267,42 @@ export const styles = StyleSheet.create({
 	// Formularz dodawania postów
 	fab: {
 		position: "absolute",
-		margin: 16,
-		right: 16,
-		bottom: 80, // Zwiększone pod fab dla odsunięcia od pływającego paska dolnego
+		right: 20,
+		bottom: 18,
 		backgroundColor: COLORS.primary,
 		borderRadius: 28,
 		elevation: 6,
-		shadowColor: "#000",
-		shadowOffset: { width: 0, height: 3 },
-		shadowOpacity: 0.27,
-		shadowRadius: 4.65,
+		shadowColor: COLORS.primary,
+		shadowOffset: { width: 0, height: 4 },
+		shadowOpacity: 0.35,
+		shadowRadius: 6,
+	},
+	emojiBarContainer: {
+		marginBottom: 12,
+		marginTop: 4,
+	},
+	emojiBarLabel: {
+		fontSize: 12,
+		fontFamily: FONTS.bold,
+		color: COLORS.textDark,
+		marginBottom: 6,
+	},
+	emojiScroll: {
+		flexDirection: "row",
+	},
+	emojiChip: {
+		width: 38,
+		height: 38,
+		borderRadius: 19,
+		backgroundColor: "#f1f5f9",
+		alignItems: "center",
+		justifyContent: "center",
+		marginRight: 6,
+		borderWidth: 1,
+		borderColor: COLORS.border,
+	},
+	emojiText: {
+		fontSize: 18,
 	},
 	dialogScrollForm: {
 		maxHeight: Dimensions.get("window").height * 0.58,

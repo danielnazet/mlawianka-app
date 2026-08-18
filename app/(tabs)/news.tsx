@@ -8,6 +8,7 @@ import { COLORS } from "../../css/colors";
 import { FONTS } from "../../css/fonts";
 import { useAuth } from "../../contexts/AuthContext";
 import { router, useNavigation } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { NewsItem, AnnouncementItem, Team } from "../../types";
 import { SAMPLE_IMAGES } from "../../constants";
@@ -37,7 +38,10 @@ const getNewsImage = (item: NewsItem, index: number) => {
 	return SAMPLE_IMAGES[idx % SAMPLE_IMAGES.length];
 };
 
+const EMOJI_LIST = ["⚽", "📢", "🏆", "🚨", "📌", "🗓️", "🥇", "🥈", "🥉", "💪", "🔥", "🧤", "🎯", "👍", "⭐", "❓", "❗", "💬", "❤️", "🙌"];
+
 export default function NewsScreen() {
+	const insets = useSafeAreaInsets();
 	const { user, profile } = useAuth();
 	const [activeTab, setActiveTab] = useState<string>("news");
 	const [news, setNews] = useState<NewsItem[]>([]);
@@ -729,6 +733,24 @@ export default function NewsScreen() {
 		);
 	};
 
+	const renderEmojiSelector = (onSelectEmoji: (emoji: string) => void) => (
+		<View style={styles.emojiBarContainer}>
+			<Text style={styles.emojiBarLabel}>Szybkie emotki:</Text>
+			<ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.emojiScroll}>
+				{EMOJI_LIST.map((emoji, idx) => (
+					<TouchableOpacity
+						key={idx}
+						activeOpacity={0.7}
+						style={styles.emojiChip}
+						onPress={() => onSelectEmoji(emoji)}
+					>
+						<Text style={styles.emojiText}>{emoji}</Text>
+					</TouchableOpacity>
+				))}
+			</ScrollView>
+		</View>
+	);
+
 	if (loading && !refreshing) {
 		return (
 			<View style={styles.loadingContainer}>
@@ -892,6 +914,7 @@ export default function NewsScreen() {
 								textColor={COLORS.textDark}
 								left={<TextInput.Icon icon="format-title" color={COLORS.textLight} />}
 							/>
+							{renderEmojiSelector((emoji) => setNewsContent((prev) => prev + emoji))}
 							<TextInput
 								label="Treść"
 								value={newsContent}
@@ -1012,6 +1035,7 @@ export default function NewsScreen() {
 								textColor={COLORS.textDark}
 								left={<TextInput.Icon icon="format-title" color={COLORS.textLight} />}
 							/>
+							{renderEmojiSelector((emoji) => setAnnouncementContent((prev) => prev + emoji))}
 							<TextInput
 								label="Treść ogłoszenia"
 								value={announcementContent}
@@ -1096,7 +1120,7 @@ export default function NewsScreen() {
 			{user && (profile?.role === "admin" || (profile?.role === "coach" && activeTab === "announcements")) && (
 				<FAB
 					icon="plus"
-					style={styles.fab}
+					style={[styles.fab, { bottom: 18 }]}
 					color={COLORS.white}
 					onPress={() => {
 						if (activeTab === "news") {
