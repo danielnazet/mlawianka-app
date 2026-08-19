@@ -31,8 +31,9 @@ import { supabase } from "../../lib/supabase";
 import { COLORS } from "../../css/colors";
 import { FONTS } from "../../css/fonts";
 import { findTeamIdByAge } from "../../constants";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
-type RegistrationRole = "player" | "parent";
+type RegistrationRole = "player" | "parent" | "fan";
 
 type MaterialIconName = ComponentProps<
   typeof MaterialIcons
@@ -687,6 +688,15 @@ export default function RegisterScreen() {
                 description="Konto zawodnika klubu"
                 onPress={changeRole}
               />
+
+              <RoleOption
+                value="fan"
+                selected={role === "fan"}
+                icon="campaign"
+                title="Kibic"
+                description="Sympatyk GKS Strzegowo"
+                onPress={changeRole}
+              />
             </View>
 
             <Text style={styles.sectionLabel}>
@@ -978,6 +988,16 @@ export default function RegisterScreen() {
                   outlineStyle={styles.inputOutline}
                   style={styles.input}
                 />
+
+                <View style={styles.multiChildHintBox}>
+                  <MaterialCommunityIcons name="information-outline" size={22} color={COLORS.primary} style={{ marginRight: 8 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.multiChildHintTitle}>Masz więcej niż jedno dziecko w klubie?</Text>
+                    <Text style={styles.multiChildHintSub}>
+                      Wpisz dane pierwszego dziecka. Drugie i kolejne dziecko dodasz w dowolnym momencie w zakładce <Text style={{ fontFamily: FONTS.bold }}>Profil</Text>!
+                    </Text>
+                  </View>
+                </View>
               </>
             )}
 
@@ -1014,29 +1034,42 @@ export default function RegisterScreen() {
                   (current) => !current,
                 )
               }
-              style={styles.privacyRow}
+              style={[
+                styles.privacyCard,
+                acceptedPrivacy && styles.privacyCardActive,
+              ]}
             >
-              <Checkbox
-                status={
-                  acceptedPrivacy
-                    ? "checked"
-                    : "unchecked"
-                }
-                onPress={() =>
-                  setAcceptedPrivacy(
-                    (current) => !current,
-                  )
-                }
-                color={COLORS.primary}
-                uncheckedColor={COLORS.textLight}
-                disabled={loading}
-              />
+              <View style={styles.privacyHeader}>
+                <MaterialCommunityIcons
+                  name="shield-check-outline"
+                  size={22}
+                  color={acceptedPrivacy ? COLORS.primary : COLORS.textLight}
+                />
+                <Text style={[styles.privacyTitle, acceptedPrivacy && styles.privacyTitleActive]}>
+                  Wymagana akceptacja regulaminu
+                </Text>
+              </View>
+              <View style={styles.privacyRowInner}>
+                <Checkbox
+                  status={
+                    acceptedPrivacy
+                      ? "checked"
+                      : "unchecked"
+                  }
+                  onPress={() =>
+                    setAcceptedPrivacy(
+                      (current) => !current,
+                    )
+                  }
+                  color={COLORS.primary}
+                  uncheckedColor={COLORS.textLight}
+                  disabled={loading}
+                />
 
-              <Text style={styles.privacyText}>
-                Akceptuję regulamin aplikacji oraz
-                politykę prywatności i wyrażam zgodę
-                na przetwarzanie podanych danych.
-              </Text>
+                <Text style={styles.privacyText}>
+                  Oświadczam, że akceptuję <Text style={styles.privacyLink}>Regulamin Klubu GKS Strzegowo</Text> oraz <Text style={styles.privacyLink}>Politykę Prywatności</Text> i wyrażam zgodę na przetwarzanie danych.
+                </Text>
+              </View>
             </Pressable>
 
             {error ? (
@@ -1376,27 +1409,72 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 
-  privacyRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-
-    marginTop: 6,
-    marginBottom: 14,
-    padding: 10,
-
+  multiChildHintBox: {
+    backgroundColor: "#F0F7FF",
+    borderColor: "#BFDBFE",
+    borderWidth: 1,
     borderRadius: 12,
-    backgroundColor: COLORS.background,
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 6,
+    marginBottom: 10,
+  },
+  multiChildHintTitle: {
+    fontSize: 13,
+    fontFamily: FONTS.bold,
+    color: COLORS.primaryDark,
+    marginBottom: 2,
+  },
+  multiChildHintSub: {
+    fontSize: 12,
+    fontFamily: FONTS.regular,
+    color: COLORS.textDark,
+    lineHeight: 16,
   },
 
+  privacyCard: {
+    backgroundColor: "#F8FAFC",
+    borderColor: COLORS.border,
+    borderWidth: 1.5,
+    borderRadius: 14,
+    padding: 14,
+    marginVertical: 14,
+  },
+  privacyCardActive: {
+    backgroundColor: "#F0F7FF",
+    borderColor: COLORS.primary,
+  },
+  privacyHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  privacyTitle: {
+    fontSize: 13,
+    fontFamily: FONTS.bold,
+    color: COLORS.textLight,
+    marginLeft: 8,
+  },
+  privacyTitleActive: {
+    color: COLORS.primary,
+  },
+  privacyRowInner: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   privacyText: {
     flex: 1,
-    paddingTop: 7,
-    paddingRight: 4,
-
-    color: COLORS.textLight,
+    fontSize: 12,
     fontFamily: FONTS.regular,
-    fontSize: 11,
-    lineHeight: 16,
+    color: COLORS.textDark,
+    lineHeight: 17,
+    marginLeft: 6,
+  },
+  privacyLink: {
+    fontFamily: FONTS.bold,
+    color: COLORS.primary,
+    textDecorationLine: "underline",
   },
 
   errorBox: {

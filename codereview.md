@@ -104,8 +104,8 @@ Ten dokument zawiera historię zmian, przegląd architektury kodu po migracji do
 7. **Logowanie Google OAuth, Nowa Rola Kibica & Ekran Uzupełnienia Profilu**:
    - **Wykrywanie Nowego Konta (`NavigationGuard` w `app/_layout.tsx`)**: Po pierwszym zalogowaniu przez Google profil nie ma wybranej roli. Aplikacja automatycznie przekierowuje użytkownika na ekran onboardingowy **`app/auth/complete_profile.tsx`**, tworząc/aktualizując profil metodą `.upsert()`, co gwarantuje pełną spójność relacji w bazie z tabelą `parent_children`.
    - **Przycisk „Zaloguj się przez Google”**: Dodano na ekranach logowania i rejestracji (`app/auth/login.tsx`) w pełnej marce Google z ikoną `google`.
-   - **Nowa Rola „📣 Kibic / Sympatyk”**: Dodano osobną rolę dla kibiców i sympatyków klubu (`role = 'fan'`). Kibic otrzymuje natychmiastowy dostęp do aktualności klubowych, tabel ligowych oraz terminarza meczów Seniorów bez konieczności wybierania grupy czy podawania danych dziecka.
-   - **Wzmocniony Automatyczny Dobór Zespołu (`constants/teams.ts`)**: Po podaniu wieku/rocznika dziecka, grupa jest przydzielana **stryktnie automatycznie** i zablokowana do edycji dla Rodzica (`🔒 Zespół przydzielony automatycznie`). Ewentualnej zmiany grupy może dokonać wyłącznie Administrator klubu w panelu zarządzania.
+   - **Nowa Karta Akceptacji Regulaminu (`privacyCard`)**: Przeprojektowano UI/UX akceptacji zgód i polityki prywatności w `app/auth/register.tsx` oraz `app/auth/complete_profile.tsx` na czytelną, interaktywną kartę z tarczą bezpieczeństwa (`shield-check-outline`), podświetleniem tła po kliknięciu i walidacją.
+   - **Wskazówka o Wielu Dzieciach dla Rodziców (`multiChildHintBox`)**: Dodano wyrazisty baner informacyjny w formularzu Rodzica wyjaśniający, że w formularzu podaje się pierwsze dziecko, a drugie i kolejne dziecko można bez przeszkód dodać w dowolnym momencie w zakładce **Profil**.
    - **Zarządzanie Wieloma Dziećmi w Profilu (`app/(tabs)/profile.tsx`)**: Dla rodziców dodano sekcję **„Moje Dzieci w Klubie”** z automatycznym dobiorem grupy wg wieku oraz zablokowaną edycją grupy.
 
 ---
@@ -137,6 +137,7 @@ Wszystkie migracje znajdują się w folderze `supabase/migrations/` i zostały w
 21. [`20260819170000_profiles_parent_select_rls.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260819170000_profiles_parent_select_rls.sql) – Rozszerzenie polityki RLS `profiles_select_authenticated` pozwalające Rodzicowi na odczytywanie profili swoich powiązanych dzieci z tabeli `public.profiles`.
 22. [`20260819180000_fix_profiles_rls_recursion.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260819180000_fix_profiles_rls_recursion.sql) – Utworzenie funkcji `SECURITY DEFINER` `public.is_current_user_coach()` i zastąpienie zapytania podrzędnego w RLS.
 23. [`20260819190000_fix_all_profiles_rls_recursion.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260819190000_fix_all_profiles_rls_recursion.sql) – Ostateczna eliminacja błędu `42P17` (`infinite recursion detected in policy for relation "profiles"`) poprzez dedykowaną funkcję `SECURITY DEFINER` `public.can_select_profile()`, łączącą pełen dostęp dla własnego profilu, dzieci oraz uprawnień sztabu bez wyzwalania pętli RLS.
+24. [`20260819200000_update_trigger_fan_role.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260819200000_update_trigger_fan_role.sql) – Aktualizacja triggera rejestracyjnego `handle_new_user()` o obsługę roli `'fan'`, ułatwiająca tradycyjną rejestrację konta Kibica.
 
 ---
 

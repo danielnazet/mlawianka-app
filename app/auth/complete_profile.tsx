@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, ScrollView, ImageBackground, Image, TouchableOpacity, Alert } from "react-native";
-import { Text, TextInput, Button, Card, Portal, Dialog } from "react-native-paper";
+import { View, StyleSheet, ScrollView, ImageBackground, Image, TouchableOpacity, Pressable, Alert } from "react-native";
+import { Text, TextInput, Button, Card, Portal, Dialog, Checkbox } from "react-native-paper";
 import { router } from "expo-router";
 import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { supabase } from "../../lib/supabase";
@@ -31,6 +31,7 @@ export default function CompleteProfileScreen() {
 	// Modale wyboru zespołów
 	const [teamModalVisible, setTeamModalVisible] = useState(false);
 	const [childTeamModalVisible, setChildTeamModalVisible] = useState(false);
+	const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
 
 	const handleChildAgeChange = (val: string) => {
 		setChildAge(val);
@@ -100,6 +101,11 @@ export default function CompleteProfileScreen() {
 				setError("Nie udało się przypisać zespołu dla podanego wieku dziecka.");
 				return;
 			}
+		}
+
+		if (!acceptedPrivacy) {
+			setError("Proszę zaakceptować regulamin i politykę prywatności, aby kontynuować.");
+			return;
 		}
 
 		setLoading(true);
@@ -331,6 +337,16 @@ export default function CompleteProfileScreen() {
 								<Text style={styles.lockHint}>
 									* Zespół przydzielany jest automatycznie na podstawie wieku. Zmiany grupy dokonuje wyłącznie Administrator.
 								</Text>
+
+								<View style={styles.multiChildHintBox}>
+									<MaterialCommunityIcons name="information-outline" size={22} color={COLORS.primary} style={{ marginRight: 10 }} />
+									<View style={{ flex: 1 }}>
+										<Text style={styles.multiChildHintTitle}>Masz więcej niż jedno dziecko w klubie?</Text>
+										<Text style={styles.multiChildHintSub}>
+											Wpisz powyżej dane pierwszego dziecka. Drugie i kolejne dziecko bez problemu dodasz w dowolnym momencie w zakładce <Text style={{ fontFamily: FONTS.bold }}>Profil</Text>!
+										</Text>
+									</View>
+								</View>
 							</View>
 						)}
 
@@ -349,6 +365,34 @@ export default function CompleteProfileScreen() {
 								</Card>
 							</View>
 						)}
+
+						<TouchableOpacity
+							activeOpacity={0.85}
+							onPress={() => setAcceptedPrivacy((prev) => !prev)}
+							style={[styles.privacyCard, acceptedPrivacy && styles.privacyCardActive]}
+						>
+							<View style={styles.privacyHeader}>
+								<MaterialCommunityIcons
+									name="shield-check-outline"
+									size={22}
+									color={acceptedPrivacy ? COLORS.primary : COLORS.textLight}
+								/>
+								<Text style={[styles.privacyTitle, acceptedPrivacy && styles.privacyTitleActive]}>
+									Wymagana akceptacja regulaminu
+								</Text>
+							</View>
+							<View style={styles.privacyRow}>
+								<Checkbox
+									status={acceptedPrivacy ? "checked" : "unchecked"}
+									onPress={() => setAcceptedPrivacy((prev) => !prev)}
+									color={COLORS.primary}
+									uncheckedColor={COLORS.textLight}
+								/>
+								<Text style={styles.privacyText}>
+									Oświadczam, że akceptuję <Text style={styles.privacyLink}>Regulamin Klubu GKS Strzegowo</Text> oraz <Text style={styles.privacyLink}>Politykę Prywatności</Text> i wyrażam zgodę na przetwarzanie danych.
+								</Text>
+							</View>
+						</TouchableOpacity>
 
 						{error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -603,6 +647,72 @@ const styles = StyleSheet.create({
 		fontFamily: FONTS.regular,
 		color: COLORS.textDark,
 		lineHeight: 16,
+	},
+	multiChildHintBox: {
+		backgroundColor: "#F0F7FF",
+		borderColor: "#BFDBFE",
+		borderWidth: 1,
+		borderRadius: 12,
+		padding: 12,
+		flexDirection: "row",
+		alignItems: "center",
+		marginTop: 6,
+		marginBottom: 10,
+	},
+	multiChildHintTitle: {
+		fontSize: 13,
+		fontFamily: FONTS.bold,
+		color: COLORS.primaryDark,
+		marginBottom: 2,
+	},
+	multiChildHintSub: {
+		fontSize: 12,
+		fontFamily: FONTS.regular,
+		color: COLORS.textDark,
+		lineHeight: 16,
+	},
+	privacyCard: {
+		backgroundColor: "#F8FAFC",
+		borderColor: COLORS.border,
+		borderWidth: 1.5,
+		borderRadius: 14,
+		padding: 14,
+		marginVertical: 14,
+	},
+	privacyCardActive: {
+		backgroundColor: "#F0F7FF",
+		borderColor: COLORS.primary,
+	},
+	privacyHeader: {
+		flexDirection: "row",
+		alignItems: "center",
+		marginBottom: 8,
+	},
+	privacyTitle: {
+		fontSize: 13,
+		fontFamily: FONTS.bold,
+		color: COLORS.textLight,
+		marginLeft: 8,
+	},
+	privacyTitleActive: {
+		color: COLORS.primary,
+	},
+	privacyRow: {
+		flexDirection: "row",
+		alignItems: "center",
+	},
+	privacyText: {
+		flex: 1,
+		fontSize: 12,
+		fontFamily: FONTS.regular,
+		color: COLORS.textDark,
+		lineHeight: 17,
+		marginLeft: 6,
+	},
+	privacyLink: {
+		fontFamily: FONTS.bold,
+		color: COLORS.primary,
+		textDecorationLine: "underline",
 	},
 	submitBtn: {
 		backgroundColor: COLORS.primary,
