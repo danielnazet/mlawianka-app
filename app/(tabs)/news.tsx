@@ -17,22 +17,65 @@ import * as FileSystem from "expo-file-system/legacy";
 import { decode } from "base64-arraybuffer";
 import Swipeable from "react-native-gesture-handler/Swipeable";
 
-const getNewsImage = (item: NewsItem, index: number) => {
-	if (item.image_url && item.image_url.startsWith("http") && !item.image_url.includes("unsplash.com")) {
-		let url = item.image_url.replace(/\\u0026/g, "&");
-		// Jeśli adres zawiera localhost lub 127.0.0.1 (np. lokalne Supabase CLI), podmieniamy na adres hosta z EXPO_PUBLIC_SUPABASE_URL
-		const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-		if (supabaseUrl && (url.includes("localhost") || url.includes("127.0.0.1"))) {
-			try {
-				const hostMatch = supabaseUrl.match(/^https?:\/\/([^/]+)/);
-				if (hostMatch && hostMatch[1]) {
-					url = url.replace(/(localhost|127\.0\.0\.1)(:\d+)?/, hostMatch[1]);
+const extractFirstImageUrl = (item: NewsItem): string | null => {
+	if (!item) return null;
+
+	let candidate: any = null;
+
+	// 1. Sprawdź tablicę/pole images
+	if (item.images) {
+		if (Array.isArray(item.images) && item.images.length > 0) {
+			candidate = item.images[0];
+		} else if (typeof (item.images as unknown) === "string") {
+			const strImages = item.images as unknown as string;
+			if (strImages.trim().length > 0) {
+				try {
+					const parsed = JSON.parse(strImages);
+					if (Array.isArray(parsed) && parsed.length > 0) {
+						candidate = parsed[0];
+					} else if (typeof parsed === "string") {
+						candidate = parsed;
+					}
+				} catch (e) {
+					candidate = strImages;
 				}
-			} catch (e) {
-				console.warn("Błąd parsowania adresu URL Supabase:", e);
 			}
 		}
-		return url;
+	}
+
+	// 2. Jeśli brak candidate w images, sprawdź image_url
+	if (!candidate && item.image_url && typeof item.image_url === "string") {
+		candidate = item.image_url;
+	}
+
+	if (!candidate || typeof candidate !== "string") return null;
+
+	let url = candidate.trim();
+	if (url.length < 5) return null;
+
+	// Oczyszczenie z uciekających znaków &
+	url = url.replace(/\\u0026/g, "&");
+
+	// Zamiana localhost / 127.0.0.1 na IP Supabase jeśli dotyczy lokalnego Supabase CLI
+	const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+	if (supabaseUrl && (url.includes("localhost") || url.includes("127.0.0.1"))) {
+		try {
+			const hostMatch = supabaseUrl.match(/^https?:\/\/([^/]+)/);
+			if (hostMatch && hostMatch[1]) {
+				url = url.replace(/(localhost|127\.0\.0\.1)(:\d+)?/, hostMatch[1]);
+			}
+		} catch (e) {
+			console.warn("Błąd parsowania adresu URL Supabase:", e);
+		}
+	}
+
+	return url;
+};
+
+const getNewsImage = (item: NewsItem, index: number) => {
+	const extracted = extractFirstImageUrl(item);
+	if (extracted) {
+		return extracted;
 	}
 	const idx = index >= 0 ? index : 0;
 	return SAMPLE_IMAGES[idx % SAMPLE_IMAGES.length];
@@ -589,10 +632,10 @@ export default function NewsScreen() {
 			<TouchableOpacity activeOpacity={0.9} onPress={() => setSelectedNews(item)}>
 				<Card style={styles.smallCard}>
 					<View style={styles.horizontalRow}>
-						<ImageBackground
+						<Image
 							source={{ uri: imageUrl }}
 							style={styles.smallCover}
-							imageStyle={{ borderRadius: 8 }}
+							resizeMode="cover"
 						/>
 						<View style={styles.smallCardTextContent}>
 							<View style={styles.smallBadgeRow}>

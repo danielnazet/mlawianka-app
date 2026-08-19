@@ -200,6 +200,8 @@ export const styles = StyleSheet.create({
 	smallCover: {
 		width: 80,
 		height: 80,
+		borderRadius: 8,
+		overflow: "hidden",
 		backgroundColor: COLORS.border,
 	},
 	smallCardTextContent: {
