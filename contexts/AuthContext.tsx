@@ -105,8 +105,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		// Listen for auth changes
 		const {
 			data: { subscription },
-		} = supabase.auth.onAuthStateChange(async (event, session) => {
-			// If session becomes invalid or token expired, reset user
+		} = supabase.auth.onAuthStateChange((event, session) => {
+			console.log("[AuthContext] onAuthStateChange event:", event, "hasSession:", !!session);
 			if (event === "TOKEN_REFRESHED" && !session) {
 				setUser(null);
 				setProfile(null);
@@ -114,13 +114,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 				return;
 			}
 			const currentUser = session?.user ?? null;
+			setUser(currentUser);
+
 			if (currentUser) {
-				await fetchProfile(currentUser.id);
+				setLoading(true);
+				setTimeout(async () => {
+					await fetchProfile(currentUser.id);
+					setLoading(false);
+				}, 0);
 			} else {
 				setProfile(null);
+				setLoading(false);
 			}
-			setUser(currentUser);
-			setLoading(false);
 		});
 
 		return () => subscription.unsubscribe();

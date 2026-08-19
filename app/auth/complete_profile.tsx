@@ -46,7 +46,7 @@ export default function CompleteProfileScreen() {
 
 	useEffect(() => {
 		if (profile?.role) {
-			router.replace("/(tabs)/news");
+			router.replace("/news");
 		}
 	}, [profile]);
 
@@ -171,7 +171,7 @@ export default function CompleteProfileScreen() {
 			}
 
 			await refreshProfile();
-			router.replace("/(tabs)/news");
+			router.replace("/news");
 		} catch (err: any) {
 			console.error("Error completing profile:", err);
 			setError(err.message || "Wystąpił błąd podczas zapisywania profilu");

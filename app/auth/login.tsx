@@ -205,13 +205,14 @@ export default function LoginScreen() {
 					const { accessToken, refreshToken } = extractTokensFromUrl(result.url);
 
 					if (accessToken && refreshToken) {
+						console.log("[Google OAuth] Setting session with tokens...");
 						const { error: sessionError } = await supabase.auth.setSession({
 							access_token: accessToken,
 							refresh_token: refreshToken,
 						});
 						if (sessionError) throw sessionError;
 						console.log("[Google OAuth] Session set successfully!");
-						router.replace("/(tabs)/news");
+						router.replace("/news");
 					} else {
 						console.warn("[Google OAuth] Could not find tokens in returned URL:", result.url);
 					}

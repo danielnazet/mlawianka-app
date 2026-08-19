@@ -26,9 +26,9 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
 		if (user) {
 			if (userRole && userRole !== "guest") {
 				if (inAuthGroup) {
-					router.replace("/(tabs)/news");
+					router.replace("/news");
 				}
-			} else {
+			} else if (profile !== null) {
 				if (!inCompleteProfileScreen) {
 					router.replace("/auth/complete_profile");
 				}
