@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, FlatList, ActivityIndicator, RefreshControl, Dimensions, ImageBackground, ScrollView, TouchableOpacity, Image, Alert, Animated, Platform } from "react-native";
+import { View, FlatList, ActivityIndicator, RefreshControl, Dimensions, ImageBackground, ScrollView, TouchableOpacity, Image, Alert, Animated, Platform, Linking } from "react-native";
 import { styles } from "../../css/news";
 import { Card, Title, Paragraph, Text, Button, Portal, Dialog, FAB, TextInput, Switch } from "react-native-paper";
 import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -16,6 +16,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { decode } from "base64-arraybuffer";
 import Swipeable from "react-native-gesture-handler/Swipeable";
+import { LinearGradient } from "expo-linear-gradient";
 
 const extractFirstImageUrl = (item: NewsItem): string | null => {
 	if (!item) return null;
@@ -103,7 +104,10 @@ export default function NewsScreen() {
 	const [uploading, setUploading] = useState(false);
 	const [newsIsFirstTeam, setNewsIsFirstTeam] = useState(false);
 	const [newsIsImportant, setNewsIsImportant] = useState(false);
+	const [newsYoutubeUrl, setNewsYoutubeUrl] = useState("");
 	const [editNewsId, setEditNewsId] = useState<number | null>(null);
+	const [reactions, setReactions] = useState<{ [newsId: number]: { [emoji: string]: number } }>({});
+	const [myReactions, setMyReactions] = useState<{ [newsId: number]: string[] }>({});
 	const [announcementTitle, setAnnouncementTitle] = useState("");
 	const [announcementContent, setAnnouncementContent] = useState("");
 	const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([]);
@@ -278,6 +282,7 @@ export default function NewsScreen() {
 		setImageUris(itemImages);
 		setNewsIsFirstTeam(item.is_first_team || false);
 		setNewsIsImportant(item.is_important || false);
+		setNewsYoutubeUrl(item.youtube_url || "");
 		setIsAddNewsVisible(true);
 	};
 
@@ -288,6 +293,7 @@ export default function NewsScreen() {
 		setImageUris([]);
 		setNewsIsFirstTeam(false);
 		setNewsIsImportant(false);
+		setNewsYoutubeUrl("");
 		setIsAddNewsVisible(false);
 	};
 
@@ -377,6 +383,7 @@ export default function NewsScreen() {
 						images: uploadedUrls,
 						is_first_team: newsIsFirstTeam,
 						is_important: newsIsImportant,
+						youtube_url: newsYoutubeUrl.trim() || null,
 					})
 					.eq("id", editNewsId);
 
@@ -390,6 +397,7 @@ export default function NewsScreen() {
 						images: uploadedUrls,
 						is_first_team: newsIsFirstTeam,
 						is_important: newsIsImportant,
+						youtube_url: newsYoutubeUrl.trim() || null,
 					},
 				]);
 
@@ -469,7 +477,6 @@ export default function NewsScreen() {
 					.from("announcements")
 					.select("*, sender:profiles!announcements_sender_id_fkey(first_name, last_name)");
 
-				// Filtruj ogłoszenia w zależności od roli i zespołu zawodnika/rodzica
 				if (profile && profile.role !== "admin" && profile.role !== "coach") {
 					const userTeamId = profile.team_id;
 					if (userTeamId) {
@@ -482,6 +489,29 @@ export default function NewsScreen() {
 				const { data: annData, error: annError } = await query.order("created_at", { ascending: false });
 				if (annError) throw annError;
 				setAnnouncements(annData || []);
+			}
+
+			// 4. Pobierz reakcje kibiców z Supabase
+			const { data: reactionsData } = await supabase
+				.from("news_reactions")
+				.select("news_id, emoji, user_id");
+
+			if (reactionsData) {
+				const map: { [newsId: number]: { [emoji: string]: number } } = {};
+				const myMap: { [newsId: number]: string[] } = {};
+
+				reactionsData.forEach((r) => {
+					if (!map[r.news_id]) map[r.news_id] = {};
+					map[r.news_id][r.emoji] = (map[r.news_id][r.emoji] || 0) + 1;
+
+					if (user && r.user_id === user.id) {
+						if (!myMap[r.news_id]) myMap[r.news_id] = [];
+						myMap[r.news_id].push(r.emoji);
+					}
+				});
+
+				setReactions(map);
+				setMyReactions(myMap);
 			}
 		} catch (error) {
 			console.error("Error fetching news/announcements data:", error);
@@ -586,22 +616,31 @@ export default function NewsScreen() {
 			const content = (
 				<TouchableOpacity activeOpacity={0.9} onPress={() => setSelectedNews(item)}>
 					<Card style={styles.featuredCard}>
-						<Image
-							source={{ uri: imageUrl }}
-							style={styles.featuredCover}
-							resizeMode="cover"
-						/>
-						<Card.Content style={styles.featuredContent}>
-							<View style={styles.badgeRow}>
-								<Text style={[
-									styles.featuredBadge,
-									!item.is_important && { backgroundColor: COLORS.primaryLight, color: COLORS.primary }
-								]}>
-									{item.is_important ? "NAJWAŻNIEJSZE" : "NAJNOWSZE"}
+						<View style={styles.featuredImageContainer}>
+							<Image
+								source={{ uri: imageUrl }}
+								style={styles.featuredCover}
+								resizeMode="cover"
+							/>
+							<LinearGradient
+								colors={["transparent", "rgba(15, 23, 42, 0.75)"]}
+								style={styles.featuredOverlay}
+							/>
+							<View style={styles.featuredBadgesRow}>
+								<Text style={styles.featuredBadge}>
+									{item.is_important ? "🔥 NAJWAŻNIEJSZE" : "⚽ NAJNOWSZE"}
+								</Text>
+								<Text style={styles.featuredBadgeSecondary}>
+									GKS STRZEGOWO
 								</Text>
 							</View>
+						</View>
+						<Card.Content style={styles.featuredContent}>
 							<Title style={styles.featuredTitle}>{item.title}</Title>
-							<Text style={styles.date}>{formatDate(item.created_at)}</Text>
+							<View style={styles.featuredDateRow}>
+								<MaterialCommunityIcons name="clock-outline" size={14} color={COLORS.textLight} />
+								<Text style={styles.featuredDate}>{formatDate(item.created_at)}</Text>
+							</View>
 							<Paragraph numberOfLines={3} style={styles.featuredContentText}>
 								{item.content}
 							</Paragraph>
@@ -639,12 +678,15 @@ export default function NewsScreen() {
 						/>
 						<View style={styles.smallCardTextContent}>
 							<View style={styles.smallBadgeRow}>
-								<Text style={styles.smallNewsBadge}>Pierwszy Zespół</Text>
+								<Text style={styles.smallNewsBadge}>Aktualności Klubowe</Text>
 							</View>
 							<Title numberOfLines={2} style={styles.smallCardTitle}>
 								{item.title}
 							</Title>
-							<Text style={styles.smallCardDate}>{formatDate(item.created_at)}</Text>
+							<View style={styles.smallCardDateRow}>
+								<MaterialCommunityIcons name="clock-outline" size={13} color={COLORS.textLight} />
+								<Text style={styles.smallCardDate}>{formatDate(item.created_at)}</Text>
+							</View>
 						</View>
 					</View>
 				</Card>
@@ -900,12 +942,78 @@ export default function NewsScreen() {
 							? selectedNews.images
 							: (selectedNews.image_url ? [selectedNews.image_url] : [getNewsImage(selectedNews, news.findIndex(n => n.id === selectedNews.id))]);
 
+						const handleToggleReaction = async (emoji: string) => {
+							if (!user) {
+								Alert.alert("Reakcje kibica", "Zaloguj się, aby oddawać głos i reagować na aktualności!");
+								return;
+							}
+
+							const userReacted = (myReactions[selectedNews.id] || []).includes(emoji);
+
+							// Aktualizacja optymistyczna w UI
+							setReactions((prev) => {
+								const currentNews = prev[selectedNews.id] || {};
+								const currentCount = currentNews[emoji] || 0;
+								const newCount = userReacted ? Math.max(0, currentCount - 1) : currentCount + 1;
+								return {
+									...prev,
+									[selectedNews.id]: {
+										...currentNews,
+										[emoji]: newCount,
+									},
+								};
+							});
+
+							setMyReactions((prev) => {
+								const currentList = prev[selectedNews.id] || [];
+								const newList = userReacted
+									? currentList.filter((e) => e !== emoji)
+									: [...currentList, emoji];
+								return {
+									...prev,
+									[selectedNews.id]: newList,
+								};
+							});
+
+							try {
+								if (userReacted) {
+									await supabase
+										.from("news_reactions")
+										.delete()
+										.eq("news_id", selectedNews.id)
+										.eq("user_id", user.id)
+										.eq("emoji", emoji);
+								} else {
+									await supabase
+										.from("news_reactions")
+										.insert({
+											news_id: selectedNews.id,
+											user_id: user.id,
+											emoji,
+										});
+								}
+							} catch (err) {
+								console.error("Error toggling reaction:", err);
+							}
+						};
+
 						return (
 							<View style={{ paddingBottom: 8 }}>
 								<Dialog.Content style={{ paddingTop: 16, paddingHorizontal: 16 }}>
 									<ScrollView style={styles.dialogScroll} showsVerticalScrollIndicator={false}>
-										{/* Karuzela zdjęć (do 3 zdjęć) */}
+										{/* Karuzela zdjęć z przyciskiem zamykania */}
 										<View style={styles.detailCarouselContainer}>
+											<TouchableOpacity
+												activeOpacity={0.8}
+												onPress={() => {
+													setSelectedNews(null);
+													setCarouselIndex(0);
+												}}
+												style={styles.closeModalBtn}
+											>
+												<MaterialIcons name="close" size={20} color={COLORS.white} />
+											</TouchableOpacity>
+
 											<ScrollView
 												horizontal
 												pagingEnabled
@@ -940,10 +1048,66 @@ export default function NewsScreen() {
 											)}
 										</View>
 
-										{/* Tytuł PO ZDJĘCIACH */}
+										{/* Kategoria i Tytuł */}
+										<View style={styles.detailCategoryBadge}>
+											<Text style={styles.detailCategoryBadgeText}>
+												{selectedNews.is_important ? "🔥 NAJWAŻNIEJSZE" : "📢 AKTUALNOŚCI KLUBOWE"}
+											</Text>
+										</View>
+
 										<Text style={styles.detailTitleUnderImage}>{selectedNews.title}</Text>
-										<Text style={styles.dialogDate}>{formatDate(selectedNews.created_at)}</Text>
+
+										{/* Informacja o autorze i dacie */}
+										<View style={styles.detailAuthorRow}>
+											<View style={styles.detailAuthorAvatar}>
+												<MaterialCommunityIcons name="shield-account" size={18} color={COLORS.primary} />
+											</View>
+											<View style={{ flex: 1 }}>
+												<Text style={styles.detailAuthorName}>Redakcja GKS Strzegowo</Text>
+												<Text style={styles.detailDateText}>{formatDate(selectedNews.created_at)} • ⏱️ 2 min czytania</Text>
+											</View>
+										</View>
+
+										{/* Przycisk oglądania transmisji YouTube (jeśli dostępny) */}
+										{selectedNews.youtube_url ? (
+											<TouchableOpacity
+												activeOpacity={0.85}
+												style={styles.youtubeWatchBtn}
+												onPress={() => {
+													if (selectedNews.youtube_url) {
+														Linking.openURL(selectedNews.youtube_url);
+													}
+												}}
+											>
+												<MaterialCommunityIcons name="youtube" size={24} color={COLORS.white} />
+												<Text style={styles.youtubeWatchBtnText}>Oglądaj mecz / skrót na YouTube</Text>
+											</TouchableOpacity>
+										) : null}
+
+										{/* Treść */}
 										<Paragraph style={styles.dialogText}>{selectedNews.content}</Paragraph>
+
+										{/* Szybkie Reakcje Kibiców */}
+										<View style={styles.reactionsBarContainer}>
+											<Text style={styles.reactionsBarLabel}>Reakcje kibiców:</Text>
+											<View style={styles.reactionsRow}>
+												{["👍", "⚽", "🔥", "💪", "❤️"].map((emoji) => {
+													const count = (reactions[selectedNews.id] && reactions[selectedNews.id][emoji]) || 0;
+													const isMyReaction = (myReactions[selectedNews.id] || []).includes(emoji);
+													return (
+														<TouchableOpacity
+															key={emoji}
+															activeOpacity={0.7}
+															style={[styles.reactionBtn, isMyReaction && styles.reactionBtnActive]}
+															onPress={() => handleToggleReaction(emoji)}
+														>
+															<Text style={styles.reactionEmoji}>{emoji}</Text>
+															{count > 0 ? <Text style={[styles.reactionCount, isMyReaction && styles.reactionCountActive]}>{count}</Text> : null}
+														</TouchableOpacity>
+													);
+												})}
+											</View>
+										</View>
 									</ScrollView>
 								</Dialog.Content>
 								<Dialog.Actions style={{ paddingHorizontal: 16, paddingTop: 8 }}>

@@ -7,6 +7,7 @@ export interface NewsItem {
 	image_url?: string | null;
 	images?: string[] | null;
 	is_important?: boolean;
+	youtube_url?: string | null;
 }
 
 export interface AnnouncementItem {
