@@ -16,14 +16,18 @@ import {
 	TextInput,
 } from "react-native-paper";
 
+import * as WebBrowser from "expo-web-browser";
+import * as Linking from "expo-linking";
 import { LinearGradient } from "expo-linear-gradient";
-import { MaterialIcons } from "@expo/vector-icons";
+import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { supabase } from "../../lib/supabase";
 import { COLORS } from "../../css/colors";
 import { FONTS } from "../../css/fonts";
+
+WebBrowser.maybeCompleteAuthSession();
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -143,6 +147,78 @@ export default function LoginScreen() {
 			setError(translateAuthError(message));
 
 			console.error("Login error:", caughtError);
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	const extractTokensFromUrl = (url: string) => {
+		let accessToken = "";
+		let refreshToken = "";
+
+		const hashPart = url.includes("#") ? url.split("#")[1] : "";
+		const queryPart = url.includes("?") ? url.split("?")[1] : "";
+
+		const parseStr = (str: string) => {
+			const pairs = str.split("&");
+			for (const pair of pairs) {
+				const [key, val] = pair.split("=");
+				if (key === "access_token") accessToken = decodeURIComponent(val || "");
+				if (key === "refresh_token") refreshToken = decodeURIComponent(val || "");
+			}
+		};
+
+		if (hashPart) parseStr(hashPart);
+		if (!accessToken && queryPart) parseStr(queryPart);
+
+		return { accessToken, refreshToken };
+	};
+
+	const handleGoogleSignIn = async () => {
+		if (loading) return;
+		setLoading(true);
+		setError("");
+
+		try {
+			const redirectUrl = Platform.OS === "web"
+				? Linking.createURL("auth/callback")
+				: "gksstrzegowo://auth/callback";
+			console.log("[Google OAuth] Generated redirect URL:", redirectUrl);
+
+			const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+				provider: "google",
+				options: {
+					redirectTo: redirectUrl,
+					skipBrowserRedirect: true,
+				},
+			});
+
+			if (oauthError) throw oauthError;
+
+			if (data?.url) {
+				console.log("[Google OAuth] Opening WebBrowser URL:", data.url);
+				const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+				console.log("[Google OAuth] WebBrowser result type:", result.type);
+
+				if (result.type === "success" && result.url) {
+					console.log("[Google OAuth] Returned URL:", result.url);
+					const { accessToken, refreshToken } = extractTokensFromUrl(result.url);
+
+					if (accessToken && refreshToken) {
+						const { error: sessionError } = await supabase.auth.setSession({
+							access_token: accessToken,
+							refresh_token: refreshToken,
+						});
+						if (sessionError) throw sessionError;
+						console.log("[Google OAuth] Session set successfully!");
+					} else {
+						console.warn("[Google OAuth] Could not find tokens in returned URL:", result.url);
+					}
+				}
+			}
+		} catch (err: any) {
+			console.error("Google login error:", err);
+			setError(err?.message || "Nie udało się zalogować przez Google.");
 		} finally {
 			setLoading(false);
 		}
@@ -361,7 +437,30 @@ export default function LoginScreen() {
 							<View style={styles.separatorLine} />
 
 							<Text style={styles.separatorText}>
-								lub
+								lub zaloguj przez
+							</Text>
+
+							<View style={styles.separatorLine} />
+						</View>
+
+						<Button
+							mode="outlined"
+							icon={({ size }) => <MaterialCommunityIcons name="google" size={size} color="#EA4335" />}
+							onPress={handleGoogleSignIn}
+							disabled={loading}
+							textColor={COLORS.textDark}
+							contentStyle={styles.googleButtonContent}
+							style={styles.googleButton}
+							labelStyle={styles.googleButtonLabel}
+						>
+							Zaloguj się przez Google
+						</Button>
+
+						<View style={styles.separator}>
+							<View style={styles.separatorLine} />
+
+							<Text style={styles.separatorText}>
+								nie masz konta?
 							</Text>
 
 							<View style={styles.separatorLine} />
@@ -625,6 +724,25 @@ const styles = StyleSheet.create({
 	registerButtonLabel: {
 		fontSize: 14,
 		fontFamily: FONTS.bold,
+	},
+
+	googleButton: {
+		borderRadius: 13,
+		borderColor: "#E2E8F0",
+		backgroundColor: COLORS.white,
+		elevation: 1,
+		shadowColor: "#000",
+		shadowOffset: { width: 0, height: 1 },
+		shadowOpacity: 0.05,
+		shadowRadius: 2,
+	},
+	googleButtonContent: {
+		minHeight: 50,
+	},
+	googleButtonLabel: {
+		fontSize: 14,
+		fontFamily: FONTS.bold,
+		color: COLORS.textDark,
 	},
 
 	homeButton: {

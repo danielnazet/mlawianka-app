@@ -3,7 +3,7 @@ export interface Profile {
 	first_name: string;
 	last_name: string;
 	email?: string;
-	role: "admin" | "coach" | "player" | "parent";
+	role: "admin" | "coach" | "player" | "parent" | "fan";
 	team_id?: number | null;
 	child_first_name?: string | null;
 	child_last_name?: string | null;

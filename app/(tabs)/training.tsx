@@ -108,8 +108,8 @@ export default function TrainingScreen() {
 		try {
 			await fetchTeams();
 
-			if (!user) {
-				// Niezalogowani goście: pobierz mecze Głównego Zespołu Seniorów
+			if (!user || profile?.role === "fan") {
+				// Goście oraz Kibice: pobierz mecze Głównego Zespołu Seniorów
 				const { data: allTeams } = await supabase.from("teams").select("id, name");
 				const seniorTeam = (allTeams || []).find((t) => {
 					const n = t.name.toLowerCase();
@@ -125,7 +125,7 @@ export default function TrainingScreen() {
 
 				setMatches(guestMatches || []);
 				setTrainings([]);
-				setActiveTab("matches"); // Domyślnie dla gościa pokazywane są Mecze
+				setActiveTab("matches"); // Domyślnie dla gościa i kibica pokazywane są Mecze
 				return;
 			}
 
@@ -652,8 +652,8 @@ export default function TrainingScreen() {
 			style={styles.container}
 			imageStyle={styles.backgroundImageStyle}
 		>
-			{/* Custom Pill Tab Switcher (widoczny tylko dla zalogowanych) */}
-			{user && (
+			{/* Custom Pill Tab Switcher (widoczny tylko dla zalogowanych zawodników, trenerów, rodziców) */}
+			{user && profile?.role !== "fan" && (
 				<View style={styles.customTabContainer}>
 					<View style={styles.customTabWrapper}>
 						{[

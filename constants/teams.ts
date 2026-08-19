@@ -38,3 +38,19 @@ export const findTeamIdByAge = (ageNum: number, teamsList: Team[]): number | nul
 	}
 	return teamsList.length > 0 ? teamsList[0].id : null;
 };
+
+/**
+ * Konwertuje podany wiek (np. 10) lub rok urodzenia (np. 2016) na wiek w latach
+ */
+export const getAgeFromInput = (input: string): number | null => {
+	const val = parseInt(input.trim(), 10);
+	if (isNaN(val)) return null;
+	const currentYear = new Date().getFullYear();
+	if (val >= 1900 && val <= currentYear) {
+		return currentYear - val;
+	}
+	if (val > 0 && val < 100) {
+		return val;
+	}
+	return null;
+};

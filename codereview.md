@@ -101,6 +101,12 @@ Ten dokument zawiera historię zmian, przegląd architektury kodu po migracji do
      4. **Hala Sportowa przy SP** (*Hala Sportowa, ul. Wojska Polskiego 1, 06-540 Strzegowo*)
      5. **Mecz wyjazdowy / Inny adres** (pozwala na wpisanie własnego adresu wyjazdowego)
 
+7. **Logowanie Google OAuth, Nowa Rola Kibica & Ekran Uzupełnienia Profilu**:
+   - **Przycisk „Zaloguj się przez Google”**: Dodano na ekranach logowania i rejestracji (`app/auth/login.tsx`) w pełnej marce Google z ikoną `google`.
+   - **Nowa Rola „📣 Kibic / Sympatyk”**: Dodano osobną rolę dla kibiców i sympatyków klubu (`role = 'fan'`). Kibic otrzymuje natychmiastowy dostęp do aktualności klubowych, tabel ligowych oraz terminarza meczów Seniorów bez konieczności wybierania grupy czy podawania danych dziecka.
+   - **Wzmocniony Automatyczny Dobór Zespołu (`constants/teams.ts`)**: Po podaniu wieku/rocznika dziecka, grupa jest przydzielana **stryktnie automatycznie** i zablokowana do edycji dla Rodzica (`🔒 Zespół przydzielony automatycznie`). Ewentualnej zmiany grupy może dokonać wyłącznie Administrator klubu w panelu zarządzania.
+   - **Zarządzanie Wieloma Dziećmi w Profilu (`app/(tabs)/profile.tsx`)**: Dla rodziców dodano sekcję **„Moje Dzieci w Klubie”** z automatycznym dobiorem grupy wg wieku oraz zablokowaną edycją grupy.
+
 ---
 
 ## 🚀 Spis Wszystkich Migracji Bazy Danych (Supabase SQL)
@@ -122,6 +128,8 @@ Wszystkie migracje znajdują się w folderze `supabase/migrations/` i zostały w
 13. [`20260818125000_announcements_target_team_ids.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260818125000_announcements_target_team_ids.sql) – Kolumna `target_team_ids integer[]` (wiele grup).
 14. [`20260818150000_matches_and_teams_anon_select.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260818150000_matches_and_teams_anon_select.sql) – Dostęp anonimowy RLS dla meczy i zespołów.
 15. [`20260818160000_trainings_coach_rls.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260818160000_trainings_coach_rls.sql) – Uprawnienia RLS zapisu/edycji/usuwania treningów i meczów dla Trenerów (`role IN ('admin', 'coach')`).
+16. [`20260819120000_fix_profiles_insert_and_fan_role.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260819120000_fix_profiles_insert_and_fan_role.sql) – Nadanie uprawnień `GRANT INSERT, SELECT, UPDATE ON public.profiles TO authenticated`, dodanie roli `'fan'` do klauzuli `CHECK` tabeli profiles oraz dostosowanie polityk RLS dla tworzenia profilu dziecka.
+17. [`20260819130000_fan_chat_with_admin.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260819130000_fan_chat_with_admin.sql) – Aktualizacja funkcji bazy `can_chat_with` pozwalająca na bezpośredni czat pomiędzy Kibicem (`role = 'fan'`) a Administratorem Klubu.
 
 ---
 

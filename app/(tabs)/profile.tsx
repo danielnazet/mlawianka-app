@@ -22,6 +22,9 @@ import {
   Card,
   Divider,
   Text,
+  Portal,
+  Dialog,
+  TextInput,
 } from "react-native-paper";
 
 import { LinearGradient } from "expo-linear-gradient";
@@ -207,6 +210,8 @@ function GuestProfile() {
   );
 }
 
+import { findTeamIdByAge, getAgeFromInput } from "../../constants/teams";
+
 export default function ProfileScreen() {
   const {
     user,
@@ -221,6 +226,27 @@ export default function ProfileScreen() {
   const [coachTeam, setCoachTeam] = useState<
     string | null
   >(null);
+
+  const [childrenList, setChildrenList] = useState<any[]>([]);
+  const [teamsList, setTeamsList] = useState<any[]>([]);
+  const [addChildModalVisible, setAddChildModalVisible] = useState(false);
+  const [teamModalVisible, setTeamModalVisible] = useState(false);
+  const [newChildFirstName, setNewChildFirstName] = useState("");
+  const [newChildLastName, setNewChildLastName] = useState("");
+  const [newChildAge, setNewChildAge] = useState("");
+  const [newChildTeamId, setNewChildTeamId] = useState("");
+  const [addChildLoading, setAddChildLoading] = useState(false);
+
+  const handleNewChildAgeChange = (val: string) => {
+    setNewChildAge(val);
+    const calculatedAge = getAgeFromInput(val);
+    if (calculatedAge !== null && teamsList.length > 0) {
+      const matchedTeamId = findTeamIdByAge(calculatedAge, teamsList);
+      if (matchedTeamId) {
+        setNewChildTeamId(matchedTeamId.toString());
+      }
+    }
+  };
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] =
@@ -290,6 +316,30 @@ export default function ProfileScreen() {
               : "Brak przypisanej drużyny",
           );
         }
+        if (profile.role === "parent") {
+          const { data: teamsData } = await supabase.from("teams").select("*");
+          setTeamsList(teamsData || []);
+          if (teamsData && teamsData.length > 0 && !newChildTeamId) {
+            setNewChildTeamId(teamsData[0].id.toString());
+          }
+
+          const { data: rels, error: relErr } = await supabase
+            .from("parent_children")
+            .select("child_id")
+            .eq("parent_id", profile.id);
+
+          if (!relErr && rels && rels.length > 0) {
+            const childIds = rels.map((r) => r.child_id);
+            const { data: kids } = await supabase
+              .from("profiles")
+              .select("id, first_name, last_name, team_id, teams(name)")
+              .in("id", childIds);
+
+            setChildrenList(kids || []);
+          } else {
+            setChildrenList([]);
+          }
+        }
       } catch (error) {
         console.error(
           "Error loading profile details:",
@@ -321,6 +371,57 @@ export default function ProfileScreen() {
       );
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const handleAddChild = async () => {
+    if (!profile) return;
+    if (!newChildFirstName.trim() || !newChildLastName.trim() || !newChildTeamId) {
+      Alert.alert("Błąd", "Wypełnij imię, nazwisko oraz wybierz zespół dziecka");
+      return;
+    }
+
+    setAddChildLoading(true);
+    try {
+      const { data: childProfile, error: childErr } = await supabase
+        .from("profiles")
+        .insert([
+          {
+            first_name: newChildFirstName.trim(),
+            last_name: newChildLastName.trim(),
+            age: newChildAge ? parseInt(newChildAge) : null,
+            role: "player",
+            team_id: parseInt(newChildTeamId),
+          },
+        ])
+        .select()
+        .single();
+
+      if (childErr) throw childErr;
+
+      if (childProfile) {
+        const { error: relErr } = await supabase
+          .from("parent_children")
+          .insert([
+            {
+              parent_id: profile.id,
+              child_id: childProfile.id,
+            },
+          ]);
+        if (relErr) throw relErr;
+      }
+
+      setAddChildModalVisible(false);
+      setNewChildFirstName("");
+      setNewChildLastName("");
+      setNewChildAge("");
+      await loadProfileDetails(false);
+      Alert.alert("Sukces", "Dziecko zostało pomyślnie dodane do zespołu!");
+    } catch (err: any) {
+      console.error("Error adding child:", err);
+      Alert.alert("Błąd", err.message || "Nie udało się dodać dziecka");
+    } finally {
+      setAddChildLoading(false);
     }
   };
 
@@ -392,6 +493,9 @@ export default function ProfileScreen() {
 
       case "player":
         return "Zawodnik";
+
+      case "fan":
+        return "Kibic GKS Strzegowo";
 
       default:
         return "Użytkownik";
@@ -561,16 +665,61 @@ export default function ProfileScreen() {
         {profile?.role === "parent" && (
           <Card style={styles.card}>
             <Card.Content style={styles.cardContent}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>
+                  Moje Dzieci w Klubie
+                </Text>
+                <Button
+                  mode="text"
+                  compact
+                  icon="plus"
+                  onPress={() => setAddChildModalVisible(true)}
+                  textColor={COLORS.primary}
+                  labelStyle={{ fontFamily: FONTS.bold, fontSize: 13 }}
+                >
+                  Dodaj dziecko
+                </Button>
+              </View>
+
+              {childrenList.length > 0 ? (
+                childrenList.map((kid, idx) => (
+                  <InfoRow
+                    key={kid.id}
+                    icon="account-child-outline"
+                    label={`${kid.first_name} ${kid.last_name}`}
+                    value={kid.teams?.name ? `Zespół: ${kid.teams.name}` : "Brak zespołu"}
+                    last={idx === childrenList.length - 1}
+                  />
+                ))
+              ) : (
+                <InfoRow
+                  icon="account-child-outline"
+                  label="Dziecko"
+                  value={childName || "Nie podano danych dziecka"}
+                  last
+                />
+              )}
+            </Card.Content>
+          </Card>
+        )}
+
+        {profile?.role === "fan" && (
+          <Card style={styles.card}>
+            <Card.Content style={styles.cardContent}>
               <Text style={styles.sectionTitle}>
-                Dane zawodnika
+                Oficjalny Kibic & Sympatyk GKS Strzegowo
               </Text>
 
               <InfoRow
-                icon="account-child-outline"
-                label="Dziecko"
-                value={
-                  childName || "Nie podano danych"
-                }
+                icon="bullhorn-outline"
+                label="Status konta"
+                value="Dostęp do aktualności, tabel ligowych i meczów Seniorów"
+              />
+
+              <InfoRow
+                icon="bell-ring-outline"
+                label="Powiadomienia PUSH"
+                value="Włączone: Nowości klubowe oraz powiadomienia o meczach Seniorów"
                 last
               />
             </Card.Content>
@@ -691,6 +840,140 @@ export default function ProfileScreen() {
           GKS Strzegowo
         </Text>
       </ScrollView>
+
+      {/* Modal Dodawania Nowego Dziecka */}
+      <Portal>
+        <Dialog
+          visible={addChildModalVisible}
+          onDismiss={() => setAddChildModalVisible(false)}
+          style={{ backgroundColor: COLORS.white, borderRadius: 16 }}
+        >
+          <Dialog.Title style={{ fontFamily: FONTS.bold, color: COLORS.primary, fontSize: 18 }}>
+            Dodaj dziecko do klubu
+          </Dialog.Title>
+          <Dialog.Content style={{ paddingHorizontal: 16 }}>
+            <TextInput
+              label="Imię dziecka"
+              value={newChildFirstName}
+              onChangeText={setNewChildFirstName}
+              mode="outlined"
+              style={{ marginBottom: 10, backgroundColor: COLORS.white }}
+              outlineColor={COLORS.border}
+              activeOutlineColor={COLORS.primary}
+              textColor={COLORS.textDark}
+            />
+            <TextInput
+              label="Nazwisko dziecka"
+              value={newChildLastName}
+              onChangeText={setNewChildLastName}
+              mode="outlined"
+              style={{ marginBottom: 10, backgroundColor: COLORS.white }}
+              outlineColor={COLORS.border}
+              activeOutlineColor={COLORS.primary}
+              textColor={COLORS.textDark}
+            />
+            <TextInput
+              label="Wiek lub rok urodzenia (np. 10 lub 2016)"
+              value={newChildAge}
+              onChangeText={handleNewChildAgeChange}
+              keyboardType="numeric"
+              mode="outlined"
+              style={{ marginBottom: 14, backgroundColor: COLORS.white }}
+              outlineColor={COLORS.border}
+              activeOutlineColor={COLORS.primary}
+              textColor={COLORS.textDark}
+            />
+
+            <Text style={{ fontFamily: FONTS.semiBold, fontSize: 13, color: COLORS.textDark, marginBottom: 4 }}>
+              Przypisany zespół dziecka (automatyczny wg wieku):
+            </Text>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: "#F1F5F9",
+                borderWidth: 1,
+                borderColor: "#CBD5E1",
+                borderRadius: 10,
+                paddingHorizontal: 14,
+                paddingVertical: 12,
+              }}
+            >
+              <MaterialCommunityIcons name="lock-outline" size={20} color={COLORS.primary} />
+              <Text style={{ flex: 1, marginLeft: 10, fontFamily: FONTS.semiBold, fontSize: 14, color: COLORS.textDark }}>
+                {teamsList.find((t) => t.id.toString() === newChildTeamId)?.name || "Wpisz wiek dziecka powyżej"}
+              </Text>
+            </View>
+            <Text style={{ fontSize: 11, color: COLORS.textLight, marginTop: 4, fontFamily: FONTS.regular, fontStyle: "italic" }}>
+              * Zespół przydzielany jest automatycznie na podstawie wieku. Zmiany grupy dokonuje wyłącznie Administrator.
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setAddChildModalVisible(false)}>Anuluj</Button>
+            <Button
+              mode="contained"
+              onPress={handleAddChild}
+              loading={addChildLoading}
+              disabled={addChildLoading}
+              buttonColor={COLORS.primary}
+            >
+              Zapisz
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+
+      {/* Modal Wyboru Zespołu w Profilu */}
+      <Portal>
+        <Dialog
+          visible={teamModalVisible}
+          onDismiss={() => setTeamModalVisible(false)}
+          style={{ backgroundColor: COLORS.white, borderRadius: 16 }}
+        >
+          <Dialog.Title style={{ fontFamily: FONTS.bold, color: COLORS.primary, fontSize: 18 }}>
+            Wybierz zespół
+          </Dialog.Title>
+          <Dialog.Content style={{ paddingHorizontal: 16 }}>
+            <ScrollView style={{ maxHeight: 280 }}>
+              {teamsList.map((t) => {
+                const isSelected = newChildTeamId === t.id.toString();
+                return (
+                  <Pressable
+                    key={t.id}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      paddingVertical: 12,
+                      paddingHorizontal: 12,
+                      borderRadius: 8,
+                      backgroundColor: isSelected ? COLORS.primaryLight : "transparent",
+                    }}
+                    onPress={() => {
+                      setNewChildTeamId(t.id.toString());
+                      setTeamModalVisible(false);
+                    }}
+                  >
+                    <Text
+                      style={{
+                        flex: 1,
+                        fontSize: 14,
+                        fontFamily: isSelected ? FONTS.bold : FONTS.regular,
+                        color: isSelected ? COLORS.primary : COLORS.textDark,
+                      }}
+                    >
+                      {t.name}
+                    </Text>
+                    {isSelected && <MaterialCommunityIcons name="check" size={20} color={COLORS.primary} />}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setTeamModalVisible(false)}>Zamknij</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 }

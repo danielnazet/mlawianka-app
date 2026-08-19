@@ -25,7 +25,7 @@ import { useNotifications } from "../../contexts/NotificationContext";
 import { COLORS } from "../../css/colors";
 import { FONTS } from "../../css/fonts";
 
-type ChatRole = "admin" | "coach" | "parent" | "player";
+type ChatRole = "admin" | "coach" | "parent" | "player" | "fan";
 
 type ChatContact = {
 	id: string;
@@ -57,6 +57,7 @@ const roleLabels: Record<ChatRole, string> = {
 	coach: "Trener",
 	parent: "Rodzic",
 	player: "Zawodnik",
+	fan: "Kibic",
 };
 
 const getContactName = (contact: ChatContact) =>
@@ -458,7 +459,11 @@ export default function ChatScreen() {
 			>
 				<View style={styles.intro}>
 					<Text style={styles.listTitle}>Wiadomości klubowe</Text>
-					<Text style={styles.listSubtitle}>Widzisz tylko osoby, z którymi możesz rozmawiać.</Text>
+					<Text style={styles.listSubtitle}>
+						{profile?.role === "fan"
+							? "Jako Kibic możesz kontaktować się bezpośrednio z Administratorem Klubu."
+							: "Widzisz tylko osoby, z którymi możesz rozmawiać."}
+					</Text>
 				</View>
 
 				{showStaffCard ? (
