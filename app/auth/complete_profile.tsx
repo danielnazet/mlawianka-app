@@ -180,7 +180,11 @@ export default function CompleteProfileScreen() {
 			style={styles.container}
 			imageStyle={styles.backgroundImageStyle}
 		>
-			<ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+			<ScrollView
+				contentContainerStyle={styles.scrollContainer}
+				showsVerticalScrollIndicator={false}
+				keyboardShouldPersistTaps="handled"
+			>
 				<View style={styles.header}>
 					<Image source={require("../assets/logo_gks.png")} style={styles.logo} />
 					<Text style={styles.title}>Dokończ rejestrację</Text>

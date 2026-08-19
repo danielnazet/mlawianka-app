@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, FlatList, ActivityIndicator, RefreshControl, Dimensions, ImageBackground, ScrollView, TouchableOpacity, Image, Alert, Animated, Platform, Linking } from "react-native";
+import { View, FlatList, ActivityIndicator, RefreshControl, Dimensions, ImageBackground, ScrollView, TouchableOpacity, Image, Alert, Animated, Platform, Linking, KeyboardAvoidingView } from "react-native";
 import { styles } from "../../css/news";
 import { Card, Title, Paragraph, Text, Button, Portal, Dialog, FAB, TextInput, Switch } from "react-native-paper";
 import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -850,8 +850,13 @@ export default function NewsScreen() {
 
 	const renderEmojiSelector = (onSelectEmoji: (emoji: string) => void) => (
 		<View style={styles.emojiBarContainer}>
-			<Text style={styles.emojiBarLabel}>Szybkie emotki:</Text>
-			<View style={styles.emojiGridWrapper}>
+			<Text style={styles.emojiBarLabel}>Szybkie emotki (stuknij, aby wstawić do treści):</Text>
+			<ScrollView
+				horizontal
+				showsHorizontalScrollIndicator={false}
+				keyboardShouldPersistTaps="handled"
+				style={styles.emojiRowScroll}
+			>
 				{EMOJI_LIST.map((emoji, idx) => (
 					<TouchableOpacity
 						key={idx}
@@ -862,7 +867,7 @@ export default function NewsScreen() {
 						<Text style={styles.emojiText}>{emoji}</Text>
 					</TouchableOpacity>
 				))}
-			</View>
+			</ScrollView>
 		</View>
 	);
 
@@ -1139,32 +1144,48 @@ export default function NewsScreen() {
 						{editNewsId !== null ? "Edytuj aktualność" : "Dodaj nową aktualność"}
 					</Dialog.Title>
 					<Dialog.Content style={styles.dialogContent}>
-						<ScrollView style={styles.dialogScrollForm} showsVerticalScrollIndicator={false}>
-							<TextInput
-								label="Tytuł"
-								value={newsTitle}
-								onChangeText={setNewsTitle}
-								mode="outlined"
-								style={styles.formInput}
-								outlineColor={COLORS.border}
-								activeOutlineColor={COLORS.primary}
-								textColor={COLORS.textDark}
-								left={<TextInput.Icon icon="format-title" color={COLORS.textLight} />}
-							/>
-							{renderEmojiSelector((emoji) => setNewsContent((prev) => prev + emoji))}
-							<TextInput
-								label="Treść"
-								value={newsContent}
-								onChangeText={setNewsContent}
-								mode="outlined"
-								multiline
-								numberOfLines={6}
-								style={styles.formInput}
-								outlineColor={COLORS.border}
-								activeOutlineColor={COLORS.primary}
-								textColor={COLORS.textDark}
-								left={<TextInput.Icon icon="text-subject" color={COLORS.textLight} />}
-							/>
+						<ScrollView
+							style={styles.dialogScrollForm}
+							showsVerticalScrollIndicator={true}
+							keyboardShouldPersistTaps="handled"
+						>
+								<TextInput
+									label="Tytuł aktualności"
+									value={newsTitle}
+									onChangeText={setNewsTitle}
+									mode="outlined"
+									style={styles.formInput}
+									outlineColor={COLORS.border}
+									activeOutlineColor={COLORS.primary}
+									textColor={COLORS.textDark}
+									left={<TextInput.Icon icon="format-title" color={COLORS.primary} />}
+								/>
+								<TextInput
+									label="Link do YouTube (skrót / transmisja meczu)"
+									value={newsYoutubeUrl}
+									onChangeText={setNewsYoutubeUrl}
+									mode="outlined"
+									style={styles.formInput}
+									outlineColor={COLORS.border}
+									activeOutlineColor="#FF0000"
+									textColor={COLORS.textDark}
+									placeholder="https://www.youtube.com/watch?v=..."
+									left={<TextInput.Icon icon="youtube" color="#FF0000" />}
+								/>
+								{renderEmojiSelector((emoji) => setNewsContent((prev) => prev + emoji))}
+								<TextInput
+									label="Treść aktualności"
+									value={newsContent}
+									onChangeText={setNewsContent}
+									mode="outlined"
+									multiline
+									numberOfLines={5}
+									style={styles.formInput}
+									outlineColor={COLORS.border}
+									activeOutlineColor={COLORS.primary}
+									textColor={COLORS.textDark}
+									left={<TextInput.Icon icon="text-subject" color={COLORS.primary} />}
+								/>
 							<Text style={styles.settingLabel}>Zdjęcia (maksymalnie 3):</Text>
 							{imageUris.length > 0 && (
 								<ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.multiImageRow}>
@@ -1260,7 +1281,11 @@ export default function NewsScreen() {
 				>
 					<Dialog.Title style={styles.dialogTitle}>Dodaj nowe ogłoszenie</Dialog.Title>
 					<Dialog.Content style={styles.dialogContent}>
-						<ScrollView style={styles.dialogScrollForm} showsVerticalScrollIndicator={false}>
+						<ScrollView
+							style={styles.dialogScrollForm}
+							showsVerticalScrollIndicator={true}
+							keyboardShouldPersistTaps="handled"
+						>
 							<TextInput
 								label="Tytuł ogłoszenia"
 								value={announcementTitle}

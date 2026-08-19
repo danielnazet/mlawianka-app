@@ -1032,7 +1032,11 @@ export default function TrainingScreen() {
 						{editEventId !== null ? "Edytuj wydarzenie" : "Dodaj wydarzenie"}
 					</Dialog.Title>
 					<Dialog.Content style={styles.dialogContent}>
-						<ScrollView style={styles.dialogScroll} showsVerticalScrollIndicator={false}>
+						<ScrollView
+							style={styles.dialogScroll}
+							showsVerticalScrollIndicator={true}
+							keyboardShouldPersistTaps="handled"
+						>
 							{/* Przełącznik typu wydarzenia (Trening / Mecz) */}
 							{editEventId === null && (
 								<View style={styles.eventTypePillsRow}>

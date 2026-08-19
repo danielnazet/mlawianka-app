@@ -861,61 +861,63 @@ export default function ProfileScreen() {
             Dodaj dziecko do klubu
           </Dialog.Title>
           <Dialog.Content style={{ paddingHorizontal: 16 }}>
-            <TextInput
-              label="Imię dziecka"
-              value={newChildFirstName}
-              onChangeText={setNewChildFirstName}
-              mode="outlined"
-              style={{ marginBottom: 10, backgroundColor: COLORS.white }}
-              outlineColor={COLORS.border}
-              activeOutlineColor={COLORS.primary}
-              textColor={COLORS.textDark}
-            />
-            <TextInput
-              label="Nazwisko dziecka"
-              value={newChildLastName}
-              onChangeText={setNewChildLastName}
-              mode="outlined"
-              style={{ marginBottom: 10, backgroundColor: COLORS.white }}
-              outlineColor={COLORS.border}
-              activeOutlineColor={COLORS.primary}
-              textColor={COLORS.textDark}
-            />
-            <TextInput
-              label="Wiek lub rok urodzenia (np. 10 lub 2016)"
-              value={newChildAge}
-              onChangeText={handleNewChildAgeChange}
-              keyboardType="numeric"
-              mode="outlined"
-              style={{ marginBottom: 14, backgroundColor: COLORS.white }}
-              outlineColor={COLORS.border}
-              activeOutlineColor={COLORS.primary}
-              textColor={COLORS.textDark}
-            />
+            <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={true} keyboardShouldPersistTaps="handled">
+              <TextInput
+                label="Imię dziecka"
+                value={newChildFirstName}
+                onChangeText={setNewChildFirstName}
+                mode="outlined"
+                style={{ marginBottom: 10, backgroundColor: COLORS.white }}
+                outlineColor={COLORS.border}
+                activeOutlineColor={COLORS.primary}
+                textColor={COLORS.textDark}
+              />
+              <TextInput
+                label="Nazwisko dziecka"
+                value={newChildLastName}
+                onChangeText={setNewChildLastName}
+                mode="outlined"
+                style={{ marginBottom: 10, backgroundColor: COLORS.white }}
+                outlineColor={COLORS.border}
+                activeOutlineColor={COLORS.primary}
+                textColor={COLORS.textDark}
+              />
+              <TextInput
+                label="Wiek lub rok urodzenia (np. 10 lub 2016)"
+                value={newChildAge}
+                onChangeText={handleNewChildAgeChange}
+                keyboardType="numeric"
+                mode="outlined"
+                style={{ marginBottom: 14, backgroundColor: COLORS.white }}
+                outlineColor={COLORS.border}
+                activeOutlineColor={COLORS.primary}
+                textColor={COLORS.textDark}
+              />
 
-            <Text style={{ fontFamily: FONTS.semiBold, fontSize: 13, color: COLORS.textDark, marginBottom: 4 }}>
-              Przypisany zespół dziecka (automatyczny wg wieku):
-            </Text>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                backgroundColor: "#F1F5F9",
-                borderWidth: 1,
-                borderColor: "#CBD5E1",
-                borderRadius: 10,
-                paddingHorizontal: 14,
-                paddingVertical: 12,
-              }}
-            >
-              <MaterialCommunityIcons name="lock-outline" size={20} color={COLORS.primary} />
-              <Text style={{ flex: 1, marginLeft: 10, fontFamily: FONTS.semiBold, fontSize: 14, color: COLORS.textDark }}>
-                {teamsList.find((t) => t.id.toString() === newChildTeamId)?.name || "Wpisz wiek dziecka powyżej"}
+              <Text style={{ fontFamily: FONTS.semiBold, fontSize: 13, color: COLORS.textDark, marginBottom: 4 }}>
+                Przypisany zespół dziecka (automatyczny wg wieku):
               </Text>
-            </View>
-            <Text style={{ fontSize: 11, color: COLORS.textLight, marginTop: 4, fontFamily: FONTS.regular, fontStyle: "italic" }}>
-              * Zespół przydzielany jest automatycznie na podstawie wieku. Zmiany grupy dokonuje wyłącznie Administrator.
-            </Text>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  backgroundColor: "#F1F5F9",
+                  borderWidth: 1,
+                  borderColor: "#CBD5E1",
+                  borderRadius: 10,
+                  paddingHorizontal: 14,
+                  paddingVertical: 12,
+                }}
+              >
+                <MaterialCommunityIcons name="lock-outline" size={20} color={COLORS.primary} />
+                <Text style={{ flex: 1, marginLeft: 10, fontFamily: FONTS.semiBold, fontSize: 14, color: COLORS.textDark }}>
+                  {teamsList.find((t) => t.id.toString() === newChildTeamId)?.name || "Wpisz wiek dziecka powyżej"}
+                </Text>
+              </View>
+              <Text style={{ fontSize: 11, color: COLORS.textLight, marginTop: 4, fontFamily: FONTS.regular, fontStyle: "italic" }}>
+                * Zespół przydzielany jest automatycznie na podstawie wieku. Zmiany grupy dokonuje wyłącznie Administrator.
+              </Text>
+            </ScrollView>
           </Dialog.Content>
           <Dialog.Actions>
             <Button onPress={() => setAddChildModalVisible(false)}>Anuluj</Button>
