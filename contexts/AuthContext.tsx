@@ -84,10 +84,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			}
 			const session = data?.session ?? null;
 			const currentUser = session?.user ?? null;
-			setUser(currentUser);
 			if (currentUser) {
 				await fetchProfile(currentUser.id);
+			} else {
+				setProfile(null);
 			}
+			setUser(currentUser);
 			setLoading(false);
 		}).catch(async (err) => {
 			console.error("Auth getSession unhandled error:", err);
@@ -112,12 +114,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 				return;
 			}
 			const currentUser = session?.user ?? null;
-			setUser(currentUser);
 			if (currentUser) {
 				await fetchProfile(currentUser.id);
 			} else {
 				setProfile(null);
 			}
+			setUser(currentUser);
 			setLoading(false);
 		});
 

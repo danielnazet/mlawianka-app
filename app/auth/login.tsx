@@ -211,6 +211,7 @@ export default function LoginScreen() {
 						});
 						if (sessionError) throw sessionError;
 						console.log("[Google OAuth] Session set successfully!");
+						router.replace("/(tabs)/news");
 					} else {
 						console.warn("[Google OAuth] Could not find tokens in returned URL:", result.url);
 					}

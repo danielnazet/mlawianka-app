@@ -19,12 +19,19 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
 	useEffect(() => {
 		if (loading) return;
 
+		const inAuthGroup = (segments as string[]).includes("auth");
 		const inCompleteProfileScreen = (segments as string[]).includes("complete_profile");
 		const userRole = (profile?.role as string) || "";
 
-		if (user && (!userRole || userRole === "guest")) {
-			if (!inCompleteProfileScreen) {
-				router.replace("/auth/complete_profile");
+		if (user) {
+			if (userRole && userRole !== "guest") {
+				if (inAuthGroup) {
+					router.replace("/(tabs)/news");
+				}
+			} else {
+				if (!inCompleteProfileScreen) {
+					router.replace("/auth/complete_profile");
+				}
 			}
 		}
 	}, [user, profile, loading, segments]);

@@ -45,6 +45,12 @@ export default function CompleteProfileScreen() {
 	};
 
 	useEffect(() => {
+		if (profile?.role) {
+			router.replace("/(tabs)/news");
+		}
+	}, [profile]);
+
+	useEffect(() => {
 		fetchTeams();
 	}, []);
 
