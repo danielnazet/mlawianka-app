@@ -62,7 +62,12 @@ export default function Layout() {
 				<NavigationGuard>
 					<NotificationProvider>
 						<PaperProvider>
-							<Stack screenOptions={{ headerShown: false }} />
+							<Stack screenOptions={{ headerShown: false }}>
+								<Stack.Screen name="index" options={{ headerShown: false }} />
+								<Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+								<Stack.Screen name="auth" options={{ headerShown: false }} />
+								<Stack.Screen name="admin" options={{ headerShown: false }} />
+							</Stack>
 						</PaperProvider>
 					</NotificationProvider>
 				</NavigationGuard>
