@@ -106,18 +106,22 @@ export default function CompleteProfileScreen() {
 		setError("");
 
 		try {
-			// 1. Zaktualizuj profil głównego użytkownika
-			const updatePayload: any = {
+			// 1. Utwórz lub zaktualizuj profil głównego użytkownika (upsert)
+			const upsertPayload: any = {
+				id: user.id,
 				first_name: firstName.trim(),
 				last_name: lastName.trim(),
 				role: selectedRole,
-				team_id: selectedRole === "player" ? parseInt(selectedTeamId) : null,
+				email: user?.email || profile?.email || null,
+				team_id: selectedRole === "player" ? parseInt(selectedTeamId) : (selectedRole === "parent" && childTeamId ? parseInt(childTeamId) : null),
+				child_first_name: selectedRole === "parent" ? childFirstName.trim() : null,
+				child_last_name: selectedRole === "parent" ? childLastName.trim() : null,
+				child_age: selectedRole === "parent" && childAge ? parseInt(childAge) : null,
 			};
 
 			const { error: profileErr } = await supabase
 				.from("profiles")
-				.update(updatePayload)
-				.eq("id", user.id);
+				.upsert(upsertPayload);
 
 			if (profileErr) throw profileErr;
 

@@ -336,6 +336,15 @@ export default function ProfileScreen() {
               .in("id", childIds);
 
             setChildrenList(kids || []);
+          } else if (profile.child_first_name) {
+            setChildrenList([
+              {
+                id: "single_child",
+                first_name: profile.child_first_name,
+                last_name: profile.child_last_name || "",
+                teams: profile.team_id ? { name: teamName } : null,
+              },
+            ]);
           } else {
             setChildrenList([]);
           }
