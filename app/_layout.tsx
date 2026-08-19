@@ -26,14 +26,11 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
 		if (user) {
 			if (userRole && userRole !== "guest") {
 				if (inAuthGroup) {
-					if (router.canDismiss()) {
-						router.dismissAll();
-					}
-					router.navigate("/news");
+					router.replace("/news");
 				}
 			} else if (profile !== null) {
 				if (!inCompleteProfileScreen) {
-					router.navigate("/auth/complete_profile");
+					router.replace("/auth/complete_profile");
 				}
 			}
 		}

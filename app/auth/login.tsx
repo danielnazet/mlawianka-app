@@ -137,10 +137,6 @@ export default function LoginScreen() {
 				throw authError;
 			}
 
-			if (router.canDismiss()) {
-				router.dismissAll();
-			}
-			router.navigate("/news");
 		} catch (caughtError) {
 			const message =
 				caughtError instanceof Error
@@ -215,10 +211,6 @@ export default function LoginScreen() {
 						});
 						if (sessionError) throw sessionError;
 						console.log("[Google OAuth] Session set successfully!");
-						if (router.canDismiss()) {
-							router.dismissAll();
-						}
-						router.navigate("/news");
 					} else {
 						console.warn("[Google OAuth] Could not find tokens in returned URL:", result.url);
 					}

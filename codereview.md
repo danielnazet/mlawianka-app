@@ -102,7 +102,7 @@ Ten dokument zawiera historię zmian, przegląd architektury kodu po migracji do
      5. **Mecz wyjazdowy / Inny adres** (pozwala na wpisanie własnego adresu wyjazdowego)
 
 7. **Logowanie Google OAuth, Nowa Rola Kibica & Ekran Uzupełnienia Profilu**:
-   - **Wykrywanie Nowego Konta i Rejestracja Ekranów Root Stack (`app/_layout.tsx`, `contexts/AuthContext.tsx` i `complete_profile.tsx`)**: Zarejestrowano jawnie ekrany w głównym komponencie `<Stack>` (`index`, `(tabs)`, `auth`, `admin`) oraz zaktualizowano mechanizm wyjścia ze stosu autoryzacji przy pomocy `router.dismissAll()` i `router.navigate("/news")`. Całkowicie wyeliminowano błędy nawigacji między pod-stosem auth a głównym drzewem zakładek aplikacji.
+   - **Wykrywanie Nowego Konta i Jednolity System Przekierowań (`app/_layout.tsx`, `contexts/AuthContext.tsx` i `app/auth/login.tsx`)**: Zunifikowano przekierowania po logowaniu (Single Source of Truth w `NavigationGuard`). Usunięto zduplikowane wywołania nawigacji z `login.tsx`, eliminując ostrzeżenia `POP_TO_TOP` i wyścigi stanów pomiędzy komponentami.
    - **Przycisk „Zaloguj się przez Google”**: Dodano na ekranach logowania i rejestracji (`app/auth/login.tsx`) w pełnej marce Google z ikoną `google`.
    - **Kompletny Redesign Wyglądu Aktualności i Modalu Szczegółów (`app/(tabs)/news.tsx` i `css/news.ts`)**: Przeprojektowano wygląd aktualności w 100% zgodnie z motywem aplikacji i z wykorzystaniem oficjalnych tokenów `COLORS` (`#1d4ed8`, `#1e3a8a`, `#f8fafc`) oraz czcionek `FONTS` (`Outfit`).
      - **Hero Featured Card**: Główny news zyskał podświetlony baner ze zdjęciem, profilowaną gradientową nakładką (`LinearGradient`), pigułkami kategorii (`🔥 NAJWAŻNIEJSZE`, `GKS STRZEGOWO`) i ikoną zegara.
