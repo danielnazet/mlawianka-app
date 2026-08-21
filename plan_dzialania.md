@@ -58,9 +58,35 @@ Ten dokument przedstawia podsumowanie wykonanych prac oraz plan dalszego rozwoju
   - Dla użytkowników z rolą `admin` na ekranie profilu lub w osobnym menu pojawi się opcja dodania nowej wiadomości (News) lub nowego treningu (Training).
   - Formularz wysyłający dane bezpośrednio do tabel w Supabase.
 
-### Krok 3: Dalsze ulepszenia UI/UX i Powiadomienia
-* Wprowadzenie ładniejszych kart treningowych z dynamicznymi statusami zapełnienia (np. "Zostało 3 z 15 miejsc").
-* Wyświetlanie na profilu zawodnika listy jego nadchodzących, zarezerwowanych treningów w ładnej formie graficznej.
+
+---
+
+## 💰 Obliczenia Biznesowe i Skalowanie (Model 5 Klubów)
+
+### 📌 Strategia Cenowa (Niski Start + Abonament)
+* **Opłata Wdrożeniowa (Start):** **990 zł** *(jednorazowo na start)*
+* **Abonament Miesięczny:** **390 zł / miesiąc** *(umowa na 12 miesięcy)* lub **3 900 zł / rok** *(przy płatności z góry – 2 miesiące gratis)*
+* **Opcja Sponsora Tytularnego:** Aplikacja jest bezpłatna dla klubu, jeśli 1 lokalny sponsor pokryje abonament 390 zł/mc w zamian za stały baner na ekranie głównym.
+
+### 📊 Bilans Finansowy na 1 Klubie:
+* **Przychód w 1. roku z 1 klubu:**
+  * Wdrożenie: `990 zł`
+  * Abonament (12 x 390 zł): `4 680 zł`
+  * **Łączny przychód w 1. roku:** **5 670 zł**
+* **Koszty własne (Infrastruktura):**
+  * Supabase (Free Tier do 50k użytkowników): **0 zł**
+  * Expo Push Notifications: **0 zł**
+  * Meta/Facebook API & YouTube: **0 zł**
+  * Konto Dewelopera Google Play (jednorazowo na całe życie): **~100 zł**
+  * Konto Dewelopera Apple App Store (opcjonalnie rocznie): **~400 zł**
+* **Czysty Zysk w 1. roku z 1 klubu:** **~5 170 zł** *(marża zysku > 90%)*
+* **Czysty Zysk w kolejnych latach z 1 klubu:** **4 680 zł / rok**
+
+### 🚀 Skalowanie (Cel: 5 Klubów Lokalnych):
+* **Przychód miesięczny z abonamentów (5 x 390 zł):** **1 950 zł / miesiąc** na czysto
+* **Przychód roczny z abonamentów (5 x 4 680 zł):** **23 400 zł / rok** na czysto
+* **Koszty stałe przy 5 klubach:** **0 zł** *(każdy klub posiada własny darmowy projekt w chmurze Supabase Free Tier)*
+
 
 
 
