@@ -4,6 +4,7 @@ export interface OrlikBooking {
 	start_time: string;
 	end_time: string;
 	description?: string | null;
+	location?: string | null;
 	booked_by: string;
 	profile?: {
 		first_name: string;

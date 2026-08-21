@@ -48,13 +48,8 @@ Ten dokument zawiera historię zmian, przegląd architektury kodu po migracji do
   - Kliknięcie w wiadomość otwiera modal z pełną treścią, tytułem umieszczonym pod zdjęciami oraz przewijaną poziomą karuzelą zdjęć (ze wskaźnikami pagination dots).
   - Dodano możliwość wgrywania **do 3 zdjęć** na jeden news z podglądem miniatur w edytorze i opcją usuwania `✕`.
   - Wdrożono przycisk FAB (`+`) wypozycjonowany na dole nad dolnym paskiem nawigacyjnym (`right: 20`, `bottom: 18`).
-* [`app/(tabs)/training.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/training.tsx) obsługuje dwie zakładki: Treningi i Mecze w oparciu o autorski **Pill Tab Switcher** z czcionkami **Outfit Bold**:
-  - Rodzice i Zawodnicy w zakładce Mecze widzą zarówno mecze własnej drużyny, jak i mecze **Głównego Zespołu Seniorów**.
-  - Niezalogowani goście widzą bezpośrednio terminarz meczowy Głównego Zespołu Seniorów z przyjaznym banerem zachęcającym do zalogowania.
-  - Trenerzy dodając wydarzenia są ograniczeni wyłącznie do zespołów, którymi opiekują się w klubie.
-
-### 5. Grafik i Rezerwacje Orlika
-* [`app/(tabs)/booking.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/booking.tsx) zawiera zapisy na treningi oraz całotygodniowy grafik Orlika z niebiesko-białą kolorystyką klubową (Royal Blue).
+* [`app/(tabs)/training.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/training.tsx) obsługuje **Interaktywny Kalendarz Dni (Date Strip Carousel)** z automatycznym centrowaniem, wskaźnikami kropkowymi (🔵 Treningi, 🟡 Mecze), szybką nawigacją (`<`, `Dziś`, `>`), dużym rozwijanym selektorem widoków (Dropdown + powiększone kafelki `Dzień`, `Treningi`, `Mecze`) oraz dużym, wygodnym przyciskiem mobilnym *„Dodaj trening lub mecz”*.
+* [`app/(tabs)/booking.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/booking.tsx) zawiera dedykowany **Grafik & Rezerwacje Boisk Orlik** z pełną synchronizacją treningów klubowych, dużym selektorem obiektów (Dropdown + kafelki *Wszystkie*, *Orlik SP*, *Orlik Parkowa*) oraz powiększonym przyciskiem *„Zarezerwuj godziny na Orliku”*.
 
 ### 6. Czat Realtime
 * [`app/(tabs)/chat.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/chat.tsx) implementuje dynamiczne pokoje rozmów w oparciu o Supabase Realtime ze wskaźnikami unread badges i awatarami rozmówców.
@@ -103,14 +98,25 @@ Ten dokument zawiera historię zmian, przegląd architektury kodu po migracji do
 
 7. **Logowanie Google OAuth, Nowa Rola Kibica & Ekran Uzupełnienia Profilu**:
    - **Wykrywanie Nowego Konta i Jednolity System Przekierowań (`app/_layout.tsx`, `contexts/AuthContext.tsx` i `app/auth/login.tsx`)**: Zunifikowano przekierowania po logowaniu (Single Source of Truth w `NavigationGuard`). Usunięto zduplikowane wywołania nawigacji z `login.tsx`, eliminując ostrzeżenia `POP_TO_TOP` i wyścigi stanów pomiędzy komponentami.
-   - **Przycisk „Zaloguj się przez Google”**: Dodano na ekranach logowania i rejestracji (`app/auth/login.tsx`) w pełnej marce Google z ikoną `google`.
+   - Zunifikowano przekierowania po logowaniu w `NavigationGuard`.
+   - Dodano przycisk „Zaloguj się przez Google”.
    - **Kompletny Redesign Wyglądu Aktualności i Modalu Szczegółów (`app/(tabs)/news.tsx` i `css/news.ts`)**: Przeprojektowano wygląd aktualności w 100% zgodnie z motywem aplikacji i z wykorzystaniem oficjalnych tokenów `COLORS` (`#1d4ed8`, `#1e3a8a`, `#f8fafc`) oraz czcionek `FONTS` (`Outfit`).
      - **Hero Featured Card**: Główny news zyskał podświetlony baner ze zdjęciem, profilowaną gradientową nakładką (`LinearGradient`), pigułkami kategorii (`🔥 NAJWAŻNIEJSZE`, `GKS STRZEGOWO`) i ikoną zegara.
      - **Karty Nowości (Flashscore Style)**: Wyrazista pozioma kompozycja z zaokrągloną okładką `86x86px`, pigułką `Aktualności Klubowe` oraz czystym układem.
      - **Modal Szczegółów (News Details)**: Pływający przycisk zamykania `✕`, wskaźnik autora `Redakcja GKS Strzegowo`, czas czytania oraz **Pasek Szybkich Reakcji Kibiców** (👍 ⚽ 🔥 💪 ❤️).
    - **Nowa Karta Akceptacji Regulaminu (`privacyCard`)**: Przeprojektowano UI/UX akceptacji zgód i polityki prywatności w `app/auth/register.tsx` oraz `app/auth/complete_profile.tsx` na czytelną, interaktywną kartę z tarczą bezpieczeństwa (`shield-check-outline`), podświetleniem tła po kliknięciu i walidacją.
-   - **Wskazówka o Wielu Dzieciach dla Rodziców (`multiChildHintBox`)**: Dodano wyrazisty baner informacyjny w formularzu Rodzica wyjaśniający, że w formularzu podaje się pierwsze dziecko, a drugie i kolejne dziecko można bez przeszkód dodać w dowolnym momencie w zakładce **Profil**.
-   - **Zarządzanie Wieloma Dziećmi w Profilu (`app/(tabs)/profile.tsx`)**: Dla rodziców dodano sekcję **„Moje Dzieci w Klubie”** z automatycznym dobiorem grupy wg wieku oraz zablokowaną edycją grupy.
+   - **Wskazówka o Wielu Dzieciach dla Rodziców (`multiChildHintBox`)**: Dodano wyrazisty baner informacyjny w formularzu Rodzica.
+
+8. **Interaktywny Kalendarz Dni & Mobilny UX w Terminarzu (`training.tsx`)**:
+   - Wdrożono poziomy pasek kalendarza (**Date Strip Carousel**) z automatycznym centrowaniem aktywnego dnia, kropkami wskaźnikowymi (🔵 Treningi, 🟡 Mecze) i strzałkami nawigacji tygodniowej.
+   - Dodano **duży rozwijany selektor widoków (Dropdown Selector)** `[ 📅 Widok: Wybrany dzień ▾ ]` wraz z powiększonymi kafelkami dotykowymi (`Dzień`, `Treningi`, `Mecze`) ułatwiającymi obsługę kciukiem.
+   - Przycisk **„Dodaj trening lub mecz”** został powiększony do pełnowymiarowego przycisku akcji o wysokości ~50px z dużą ikoną `+`.
+
+9. **Dedykowany Grafik Boisk Orlik & Synchronizacja Treningów (`booking.tsx`)**:
+   - Usunięto zbędny moduł zapisu na treningi, dedykując ekran w 100% grafikowi boisk Orlik w Strzegowie.
+   - Wdrożono **pełną automatyczną synchronizację treningów**: każdy trening zaplanowany na Orliku pojawia się w harmonogramie z etykietą `TRENING DRUŻYNY`, nazwiskiem trenera i godzinami.
+   - Wdrożono **duży selektor obiektów Orlik** (Dropdown + duże kafelki *Wszystkie*, *Orlik SP*, *Orlik Parkowa*) z pełnymi adresami obiektów klubowych.
+   - Przycisk **„Zarezerwuj godziny na Orliku”** zyskał duży format, wyraźną ikonę i pełną szerokość.
 
 ---
 
@@ -135,16 +141,17 @@ Wszystkie migracje znajdują się w folderze `supabase/migrations/` i zostały w
 15. [`20260818160000_trainings_coach_rls.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260818160000_trainings_coach_rls.sql) – Uprawnienia RLS zapisu/edycji/usuwania treningów i meczów dla Trenerów (`role IN ('admin', 'coach')`).
 16. [`20260819120000_fix_profiles_insert_and_fan_role.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260819120000_fix_profiles_insert_and_fan_role.sql) – Nadanie uprawnień `GRANT INSERT, SELECT, UPDATE ON public.profiles TO authenticated`, dodanie roli `'fan'` do klauzuli `CHECK` tabeli profiles oraz dostosowanie polityk RLS dla tworzenia profilu dziecka.
 17. [`20260819130000_fan_chat_with_admin.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260819130000_fan_chat_with_admin.sql) – Aktualizacja funkcji bazy `can_chat_with` pozwalająca na bezpośredni czat pomiędzy Kibicem (`role = 'fan'`) a Administratorem Klubu.
-18. [`20260819140000_profiles_default_uuid.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260819140000_profiles_default_uuid.sql) – Dodanie domyślnej wartości `DEFAULT gen_random_uuid()` w PostgreSQL dla kolumny `public.profiles.id`, usuwające potrzebę wywoływania `crypto.randomUUID()` w silniku JS (Hermes) i pozwalające na bezbłędne natywne generowanie identyfikatorów kont dzieci.
-19. [`20260819150000_profiles_email_nullable.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260819150000_profiles_email_nullable.sql) – Złożenie klauzuli `ALTER TABLE public.profiles ALTER COLUMN email DROP NOT NULL`, dzięki czemu dzieci tworzone przez rodziców nie wymagają posiadania własnego adresu e-mail.
-20. [`20260819160000_drop_profiles_id_fkey.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260819160000_drop_profiles_id_fkey.sql) – Usunięcie klucza obcego `profiles_id_fkey` wymuszającego wpis w `auth.users`, umożliwiające przechowywanie w `public.profiles` profili dzieci nieposiadających własnego loginu w systemie auth.
-21. [`20260819170000_profiles_parent_select_rls.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260819170000_profiles_parent_select_rls.sql) – Rozszerzenie polityki RLS `profiles_select_authenticated` pozwalające Rodzicowi na odczytywanie profili swoich powiązanych dzieci z tabeli `public.profiles`.
-22. [`20260819180000_fix_profiles_rls_recursion.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260819180000_fix_profiles_rls_recursion.sql) – Utworzenie funkcji `SECURITY DEFINER` `public.is_current_user_coach()` i zastąpienie zapytania podrzędnego w RLS.
-23. [`20260819190000_fix_all_profiles_rls_recursion.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260819190000_fix_all_profiles_rls_recursion.sql) – Ostateczna eliminacja błędu `42P17` (`infinite recursion detected in policy for relation "profiles"`) poprzez dedykowaną funkcję `SECURITY DEFINER` `public.can_select_profile()`, łączącą pełen dostęp dla własnego profilu, dzieci oraz uprawnień sztabu bez wyzwalania pętli RLS.
-24. [`20260819200000_update_trigger_fan_role.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260819200000_update_trigger_fan_role.sql) – Aktualizacja triggera rejestracyjnego `handle_new_user()` o obsługę roli `'fan'`, ułatwiająca tradycyjną rejestrację konta Kibica.
-25. [`20260819210000_news_reactions_and_youtube_url.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260819210000_news_reactions_and_youtube_url.sql) – Utworzenie tabeli `public.news_reactions` z uprawnieniami RLS dla logowania i zliczania reakcji kibiców na żywo, dodanie kolumny `youtube_url` do tabeli `public.news` oraz przeprowadzenie globalnego audytu formularzy i modalów w całej aplikacji (`login.tsx`, `register.tsx`, `complete_profile.tsx`, `news.tsx`, `training.tsx`, `profile.tsx`), zapewniającego płynne, stabilne i nieprzeskakujące przewijanie ekranów przy otwartej klawiaturze mobilnej (`keyboardShouldPersistTaps="handled"`).
-26. [`20260819220000_fix_oauth_trigger.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260819220000_fix_oauth_trigger.sql) – Obsługa logowania OAuth (Google, Facebook) w triggerze `handle_new_user()` zapobiegająca wyjątkom braku pól formularza oraz poprawka ścieżek nawigacji Expo Router z `/(tabs)/news` na `/news`.
-27. [`20260819230000_exclude_children_from_chat.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260819230000_exclude_children_from_chat.sql) – Wykluczenie subprofili dzieci (przypisanych w `parent_children`) z listy kontaktów czatu oraz zapewnienie bezpośredniej komunikacji trenera z rodzicami zawodników z jego drużyn.
+18. [`20260819140000_profiles_default_uuid.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260819140000_profiles_default_uuid.sql) – Dodanie domyślnej wartości `DEFAULT gen_random_uuid()` w PostgreSQL dla kolumny `public.profiles.id`.
+19. [`20260819150000_profiles_email_nullable.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260819150000_profiles_email_nullable.sql) – Zniesienie wymogu unikalnego e-maila dla dzieci (`ALTER TABLE public.profiles ALTER COLUMN email DROP NOT NULL`).
+20. [`20260819160000_drop_profiles_id_fkey.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260819160000_drop_profiles_id_fkey.sql) – Usunięcie klucza obcego `profiles_id_fkey` dla profili subkont dzieci.
+21. [`20260819170000_profiles_parent_select_rls.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260819170000_profiles_parent_select_rls.sql) – Polityka RLS odczytu dzieci przez rodzica.
+22. [`20260819180000_fix_profiles_rls_recursion.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260819180000_fix_profiles_rls_recursion.sql) – Funkcja `SECURITY DEFINER` `public.is_current_user_coach()`.
+23. [`20260819190000_fix_all_profiles_rls_recursion.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260819190000_fix_all_profiles_rls_recursion.sql) – Ostateczna funkcja `SECURITY DEFINER` `public.can_select_profile()`.
+24. [`20260819200000_update_trigger_fan_role.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260819200000_update_trigger_fan_role.sql) – Rejestracja roli `'fan'` w triggerze.
+25. [`20260819210000_news_reactions_and_youtube_url.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260819210000_news_reactions_and_youtube_url.sql) – Tabela `news_reactions` oraz obsługa `keyboardShouldPersistTaps="handled"` we wszystkich formularzach.
+26. [`20260819220000_fix_oauth_trigger.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260819220000_fix_oauth_trigger.sql) – Obsługa logowania Google OAuth w triggerze i poprawka ścieżek `/news`.
+27. [`20260819230000_exclude_children_from_chat.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260819230000_exclude_children_from_chat.sql) – Wykluczenie subprofili dzieci z listy kontaktów czatu i połączenie trenerów z rodzicami.
+28. [`20260821140000_orlik_location.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260821140000_orlik_location.sql) – Dodanie kolumny `location` do tabeli `orlik_bookings`.
 
 ---
 
@@ -161,14 +168,10 @@ npx expo start -c
 | :--- | :--- | :--- |
 | [`app.json`](file:///d:/Nowy%20folder/mlawianka-app/app.json) | Zmodyfikowany | Nowa nazwa "GKS Strzegowo", slug, bundleIdentifier i Android package. |
 | [`package.json`](file:///d:/Nowy%20folder/mlawianka-app/package.json) | Zmodyfikowany | Zależności `expo-image-picker`, `expo-notifications`. |
-| [`css/colors.ts`](file:///d:/Nowy%20folder/mlawianka-app/css/colors.ts) | Zmodyfikowany | Kolorystyka klubowa GKS Strzegowo (Royal Blue). Usunięty zielony kolor. |
-| [`css/news.ts`](file:///d:/Nowy%20folder/mlawianka-app/css/news.ts) | Zmodyfikowany | Stylizacje karuzeli zdjęć, klawiatury emotek i rozwijanych selektorów zespołów. |
-| [`app/(tabs)/news.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/news.tsx) | Zmodyfikowany | Karuzela do 3 zdjęć, Pill Tab Switcher, siatka emotek, multi-team targeting ogłoszeń, nowy pozycjonowany FAB. |
-| [`app/(tabs)/training.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/training.tsx) | Zmodyfikowany | Pill Tab Switcher, podgląd meczów Seniorów dla gości i rodziców, restrykcje zespołów trenera, nowy modal wydarzeń. |
-| [`app/(tabs)/booking.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/booking.tsx) | Zmodyfikowany | Pill Tab Switcher z czcionkami Outfit i niebiesko-białą kolorystyką (Royal Blue). |
-| [`app/(tabs)/chat.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/chat.tsx) | Zmodyfikowany | Realtime chat z powiadomieniami i niebieskimi odznakami badge. |
-| [`components/ClubTabBar.tsx`](file:///d:/Nowy%20folder/mlawianka-app/components/ClubTabBar.tsx) | Zmodyfikowany | Jasny motyw nawigacji, szara kapsułka i niebieskie wskaźniki odznaki. |
-| [`contexts/NotificationContext.tsx`](file:///d:/Nowy%20folder/mlawianka-app/contexts/NotificationContext.tsx) | **Nowy** | Globalny manager powiadomień realtime, liczników nieprzeczytanych i odznaki. |
-| [`supabase/migrations/20260818120000_news_images_array.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260818120000_news_images_array.sql) | **Nowy** | Dodanie kolumny `images text[]` do tabeli `news`. |
-| [`supabase/migrations/20260818125000_announcements_target_team_ids.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260818125000_announcements_target_team_ids.sql) | **Nowy** | Dodanie kolumny `target_team_ids integer[]` do `announcements`. |
-| [`supabase/migrations/20260818150000_matches_and_teams_anon_select.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260818150000_matches_and_teams_anon_select.sql) | **Nowy** | Zezwolenie na anonimowy odczyt RLS meczy i zespołów dla gości. |
+| [`css/colors.ts`](file:///d:/Nowy%20folder/mlawianka-app/css/colors.ts) | Zmodyfikowany | Kolorystyka klubowa GKS Strzegowo (Royal Blue). |
+| [`types/booking.ts`](file:///d:/Nowy%20folder/mlawianka-app/types/booking.ts) | Zmodyfikowany | Dodanie pola `location?: string` w `OrlikBooking`. |
+| [`app/(tabs)/news.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/news.tsx) | Zmodyfikowany | Karuzela do 3 zdjęć, siatka emotek, reakcje kibiców, multi-team targeting, FAB. |
+| [`app/(tabs)/training.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/training.tsx) | Zmodyfikowany | Interaktywny kalendarz dni, duży selektor widoków Dropdown, uproszczone karty i powiększony przycisk dodawania. |
+| [`app/(tabs)/booking.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/booking.tsx) | Zmodyfikowany | Grafik boisk Orlik, synchronizacja treningów, duży selektor obiektów, powiększony przycisk rezerwacji. |
+| [`app/(tabs)/chat.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/chat.tsx) | Zmodyfikowany | Czat realtime z wykluczeniem dzieci i bezpośrednim kontaktem rodzic-trener. |
+| [`supabase/migrations/20260821140000_orlik_location.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260821140000_orlik_location.sql) | **Nowy** | Kolumna `location` w `orlik_bookings`. |

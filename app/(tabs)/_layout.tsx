@@ -122,7 +122,7 @@ export default function TabLayout() {
 			<Tabs.Screen
 				name="booking"
 				options={{
-					title: "Rezerwacja Orlika",
+					title: "Grafik Orlika",
 					href: canManageBooking ? undefined : null,
 				}}
 			/>
