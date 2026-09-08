@@ -1,3 +1,4 @@
+import "react-native-gesture-handler";
 import React from "react";
 import { Stack } from "expo-router";
 import { PaperProvider } from "react-native-paper";
@@ -40,7 +41,7 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
 }
 
 export default function Layout() {
-	const [fontsLoaded] = useFonts({
+	const [fontsLoaded, fontError] = useFonts({
 		Outfit_400Regular,
 		Outfit_500Medium,
 		Outfit_600SemiBold,
@@ -48,13 +49,14 @@ export default function Layout() {
 		Outfit_800ExtraBold,
 	});
 
-	if (!fontsLoaded) {
+	if (!fontsLoaded && !fontError) {
 		return (
 			<View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#f8fafc" }}>
 				<ActivityIndicator size="large" color="#1d4ed8" />
 			</View>
 		);
 	}
+
 
 	return (
 		<GestureHandlerRootView style={{ flex: 1 }}>

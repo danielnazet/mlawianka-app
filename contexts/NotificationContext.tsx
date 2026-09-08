@@ -12,17 +12,22 @@ import { useAuth } from "./AuthContext";
 import { COLORS } from "../css/colors";
 import { FONTS } from "../css/fonts";
 
-Notifications.setNotificationHandler({
-	handleNotification: async () => ({
-		shouldShowAlert: true,
-		shouldPlaySound: true,
-		shouldSetBadge: true,
-		shouldShowBanner: true,
-		shouldShowList: true,
-	}),
-});
+try {
+	Notifications.setNotificationHandler({
+		handleNotification: async () => ({
+			shouldShowAlert: true,
+			shouldPlaySound: true,
+			shouldSetBadge: true,
+			shouldShowBanner: true,
+			shouldShowList: true,
+		}),
+	});
+} catch (e) {
+	console.warn("Error setting notification handler:", e);
+}
 
 interface NotificationContextProps {
+
 	showLocalToast: (title: string, body: string, icon: string, targetScreen: string) => void;
 	unreadChatsCount: number;
 	unreadAnnouncementsCount: number;
@@ -130,6 +135,15 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 			if (Platform.OS === "web" || !user) return;
 
 			try {
+				if (Platform.OS === "android") {
+					await Notifications.setNotificationChannelAsync("default", {
+						name: "Domyślne",
+						importance: Notifications.AndroidImportance.MAX,
+						vibrationPattern: [0, 250, 250, 250],
+						lightColor: "#1d4ed8",
+					});
+				}
+
 				const { status: existingStatus } = await Notifications.getPermissionsAsync();
 				let finalStatus = existingStatus;
 				if (existingStatus !== "granted") {
@@ -143,6 +157,10 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 				}
 
 				const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+				if (!projectId) {
+					console.warn("No EAS projectId found for push notifications");
+					return;
+				}
 				const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
 				const token = tokenData.data;
 
@@ -160,6 +178,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
 		void registerPushNotifications();
 	}, [user]);
+
 
 
 

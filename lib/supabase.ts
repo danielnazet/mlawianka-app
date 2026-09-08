@@ -2,9 +2,14 @@ import "react-native-url-polyfill/auto";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient } from "@supabase/supabase-js";
 
-// Dane konfiguracyjne Supabase pobierane ze zmiennych środowiskowych .env
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || "";
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "";
+// Dane konfiguracyjne Supabase pobierane ze zmiennych środowiskowych .env lub fallback
+const supabaseUrl =
+	process.env.EXPO_PUBLIC_SUPABASE_URL ||
+	"https://oyqsfkwouyhpabkrhgmk.supabase.co";
+const supabaseAnonKey =
+	process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
+	"sb_publishable_Bk33JNe_PKcOhKtIsNlWcg_-Ii4GB4v";
+
 
 // Inicjalizacja klienta Supabase
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
