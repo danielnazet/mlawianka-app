@@ -6,7 +6,13 @@
     "orientation": "portrait",
     "scheme": "gksstrzegowo",
     "icon": "./assets/icon.png",
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
     "ios": {
+
       "supportsTablet": true,
       "bundleIdentifier": "com.gksstrzegowo.app"
     },
@@ -25,9 +31,10 @@
     },
     "web": {
       "bundler": "metro",
-      "output": "static",
+      "output": "single",
       "favicon": "./assets/icon.png"
     },
+
     "plugins": [
 
       "expo-router",
