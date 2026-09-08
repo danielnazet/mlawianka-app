@@ -12,7 +12,6 @@
       "web"
     ],
     "ios": {
-
       "supportsTablet": true,
       "bundleIdentifier": "com.gksstrzegowo.app"
     },
@@ -23,10 +22,16 @@
       },
       "package": "com.gksstrzegowo.app",
       "permissions": [
-        "INTERNET",
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE",
-        "POST_NOTIFICATIONS"
+        "android.permission.INTERNET",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.INTERNET",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -34,9 +39,7 @@
       "output": "single",
       "favicon": "./assets/icon.png"
     },
-
     "plugins": [
-
       "expo-router",
       "expo-font",
       "expo-web-browser",
@@ -58,13 +61,17 @@
         }
       ]
     ],
-
-
     "extra": {
       "router": {},
       "eas": {
         "projectId": "449e5618-f475-4c5d-9c39-dbf8bf385187"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/449e5618-f475-4c5d-9c39-dbf8bf385187"
     }
   }
 }
