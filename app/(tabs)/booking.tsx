@@ -12,16 +12,18 @@ import {
 } from "react-native";
 import {
 	Card,
-	Title,
 	Button,
 	Text,
-	Paragraph,
 	Portal,
 	Dialog,
 	TextInput,
-	Avatar,
+	Title,
 	RadioButton,
+	Avatar,
+	Paragraph
 } from "react-native-paper";
+
+
 import { router } from "expo-router";
 import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
@@ -955,24 +957,57 @@ export default function BookingScreen() {
 							<Dialog.Title style={styles.dialogTitle}>Wybierz boisko</Dialog.Title>
 							<Dialog.ScrollArea style={styles.dialogScrollArea}>
 								<ScrollView contentContainerStyle={{ paddingVertical: 10 }}>
-									<RadioButton.Group
-										onValueChange={(val) => {
-											setFormPitchLocation(val);
-											setFormPitchModalVisible(false);
-										}}
-										value={formPitchLocation}
-									>
-										<RadioButton.Item
-											label="Orlik nr 1 przy SP (ul. Wojska Polskiego 1)"
-											value={ORLIK_PITCHES[1].address}
-											color={COLORS.primary}
-										/>
-										<RadioButton.Item
-											label="Orlik Gminny (ul. Parkowa 2)"
-											value={ORLIK_PITCHES[2].address}
-											color={COLORS.primary}
-										/>
-									</RadioButton.Group>
+									<View style={{ gap: 8 }}>
+										{ORLIK_PITCHES.slice(1).map((pitch) => {
+											const isSelected = formPitchLocation === pitch.address;
+											return (
+												<TouchableOpacity
+													key={pitch.id}
+													activeOpacity={0.8}
+													onPress={() => {
+														setFormPitchLocation(pitch.address);
+														setFormPitchModalVisible(false);
+													}}
+													style={[
+														styles.pitchOptionItem,
+														isSelected && styles.pitchOptionItemActive,
+													]}
+												>
+													<View
+														style={[
+															styles.pitchOptionIconBox,
+															isSelected && styles.pitchOptionIconBoxActive,
+														]}
+													>
+														<MaterialCommunityIcons
+															name="soccer-field"
+															size={22}
+															color={isSelected ? COLORS.white : COLORS.primary}
+														/>
+													</View>
+													<View style={{ flex: 1 }}>
+														<Text
+															style={[
+																styles.pitchOptionName,
+																isSelected && styles.pitchOptionNameActive,
+															]}
+														>
+															{pitch.name}
+														</Text>
+														<Text style={styles.pitchOptionAddress}>{pitch.address}</Text>
+													</View>
+													{isSelected && (
+														<MaterialCommunityIcons
+															name="check-circle"
+															size={22}
+															color={COLORS.primary}
+														/>
+													)}
+												</TouchableOpacity>
+											);
+										})}
+									</View>
+
 								</ScrollView>
 							</Dialog.ScrollArea>
 							<Dialog.Actions>

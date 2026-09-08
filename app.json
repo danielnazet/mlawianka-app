@@ -6,15 +6,6 @@
     "orientation": "portrait",
     "scheme": "gksstrzegowo",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.gksstrzegowo.app"
@@ -32,12 +23,26 @@
         "POST_NOTIFICATIONS"
       ]
     },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/icon.png"
+    },
     "plugins": [
+
       "expo-router",
       "expo-font",
       "expo-web-browser",
       "@react-native-community/datetimepicker",
       "expo-image-picker",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ],
       [
         "expo-notifications",
         {
@@ -46,6 +51,7 @@
         }
       ]
     ],
+
 
     "extra": {
       "router": {},
