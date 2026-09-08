@@ -9,6 +9,7 @@ import {
 	TouchableOpacity,
 	Alert,
 	FlatList,
+	Dimensions,
 } from "react-native";
 import {
 	Card,
@@ -34,7 +35,12 @@ import { COLORS } from "../../css/colors";
 import { FONTS } from "../../css/fonts";
 import { OrlikBooking, Training } from "../../types";
 
-const DAY_ITEM_WIDTH = 62;
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const CALENDAR_PADDING = 12;
+const DAY_GAP = 6;
+// 5 dni widocznych na ekranie (2 po lewej, obecny na środku, 2 po prawej)
+const DAY_ITEM_WIDTH = Math.floor((SCREEN_WIDTH - CALENDAR_PADDING * 2 - 4 * DAY_GAP) / 5);
+const DAY_TOTAL_ITEM_WIDTH = DAY_ITEM_WIDTH + DAY_GAP;
 
 export const ORLIK_PITCHES = [
 	{
@@ -78,7 +84,6 @@ export default function BookingScreen() {
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
 	const [selectedPitchId, setSelectedPitchId] = useState<string>("all");
-	const [pitchPickerModalVisible, setPitchPickerModalVisible] = useState(false);
 
 	// Dzisiejsza data jako klucz YYYY-MM-DD
 	const todayDateKey = useMemo(() => {
@@ -154,10 +159,6 @@ export default function BookingScreen() {
 	const selectedDayInfo = useMemo(() => {
 		return calendarDays.find((d) => d.dateKey === selectedDateKey) || calendarDays[14];
 	}, [calendarDays, selectedDateKey]);
-
-	const currentPitch = useMemo(() => {
-		return ORLIK_PITCHES.find((p) => p.id === selectedPitchId) || ORLIK_PITCHES[0];
-	}, [selectedPitchId]);
 
 	// Pobieranie rezerwacji oraz treningów
 	const fetchData = async () => {
@@ -365,7 +366,7 @@ export default function BookingScreen() {
 			direction === "next"
 				? Math.min(calendarDays.length - 1, currentIndex + 7)
 				: Math.max(0, currentIndex - 7);
-		const targetDay = calendarDays[targetIndex];
+const targetDay = calendarDays[targetIndex];
 		if (targetDay) {
 			setSelectedDateKey(targetDay.dateKey);
 			calendarListRef.current?.scrollToIndex({
@@ -375,6 +376,59 @@ export default function BookingScreen() {
 		}
 	};
 
+	const [pitchDropdownOpen, setPitchDropdownOpen] = useState(false);
+	const [slotsDropdownOpen, setSlotsDropdownOpen] = useState(false);
+	const [purposeDropdownOpen, setPurposeDropdownOpen] = useState(false);
+
+	const toMinutes = (timeStr: string) => {
+		if (!timeStr) return 0;
+		const [h, m] = timeStr.split(":").map(Number);
+		return (h || 0) * 60 + (m || 0);
+	};
+
+	const isLocationSame = (locA: string, locB: string) => {
+		const a = (locA || "").toLowerCase();
+		const b = (locB || "").toLowerCase();
+		const aIsParkowa = a.includes("parkowa") || a.includes("gminny");
+		const bIsParkowa = b.includes("parkowa") || b.includes("gminny");
+		if (aIsParkowa && bIsParkowa) return true;
+		if (!aIsParkowa && !bIsParkowa) return true;
+		return false;
+	};
+
+	const checkBookingConflict = (
+		date: string,
+		start: string,
+		end: string,
+		location: string,
+		excludeId?: number | null
+	): UnifiedOrlikSlot | null => {
+		const newStartMin = toMinutes(start);
+		const newEndMin = toMinutes(end);
+
+		if (newEndMin <= newStartMin) return null;
+
+		for (const slot of unifiedSlots) {
+			if (slot.bookingDate !== date) continue;
+			if (excludeId && slot.sourceType === "booking" && slot.sourceId === excludeId) continue;
+			if (!isLocationSame(slot.pitchLocation, location)) continue;
+
+			const slotStartMin = toMinutes(slot.startTime);
+			const slotEndMin = toMinutes(slot.endTime);
+			const effectiveEnd = slotEndMin <= slotStartMin ? slotStartMin + 90 : slotEndMin;
+
+			if (newStartMin < effectiveEnd && newEndMin > slotStartMin) {
+				return slot;
+			}
+		}
+		return null;
+	};
+
+	const activeConflict = useMemo(() => {
+		if (!dialogVisible || !bookingDate || !startTime || !endTime || !formPitchLocation) return null;
+		return checkBookingConflict(bookingDate, startTime, endTime, formPitchLocation, editOrlikBookingId);
+	}, [dialogVisible, bookingDate, startTime, endTime, formPitchLocation, editOrlikBookingId, unifiedSlots]);
+
 	const openOrlikDialog = () => {
 		setEditOrlikBookingId(null);
 		setBookingDate(selectedDateKey);
@@ -383,6 +437,9 @@ export default function BookingScreen() {
 		setEndTime("18:30");
 		setBookingDesc("");
 		setBookingError("");
+		setPitchDropdownOpen(false);
+		setSlotsDropdownOpen(false);
+		setPurposeDropdownOpen(false);
 		setDialogVisible(true);
 	};
 
@@ -398,12 +455,32 @@ export default function BookingScreen() {
 		setEndTime(slot.endTime);
 		setBookingDesc(slot.description || "");
 		setBookingError("");
+		setPitchDropdownOpen(false);
+		setSlotsDropdownOpen(false);
+		setPurposeDropdownOpen(false);
 		setDialogVisible(true);
 	};
 
 	const handleSaveOrlikBooking = async () => {
 		if (!bookingDate || !startTime || !endTime) {
 			setBookingError("Proszę podać datę oraz godziny rezerwacji.");
+			return;
+		}
+
+		if (toMinutes(endTime) <= toMinutes(startTime)) {
+			setBookingError("Godzina zakończenia musi być późniejsza niż godzina rozpoczęcia.");
+			return;
+		}
+
+		if (activeConflict) {
+			setBookingError(
+				`Termin jest zajęty! Kolizja z: ${activeConflict.title} (${activeConflict.startTime} - ${activeConflict.endTime})`
+			);
+			Alert.alert(
+				"Konflikt terminów na Orliku",
+				`W wybranym terminie (${startTime} - ${endTime}) na tym boisku odbywa się już: "${activeConflict.title}" (${activeConflict.bookerName}). Wybierz inne godziny lub drugi Orlik.`,
+				[{ text: "Rozumiem" }]
+			);
 			return;
 		}
 
@@ -448,7 +525,7 @@ export default function BookingScreen() {
 			fetchData();
 		} catch (err: any) {
 			console.error("Error saving Orlik booking:", err);
-			setBookingError(err.message || "Błąd zapisu rezerwacji");
+			setBookingError(err.message || "Wystąpił błąd podczas zapisywania rezerwacji.");
 		} finally {
 			setBookingLoading(false);
 		}
@@ -576,8 +653,8 @@ export default function BookingScreen() {
 							showsHorizontalScrollIndicator={false}
 							contentContainerStyle={styles.calendarListContent}
 							getItemLayout={(_, index) => ({
-								length: DAY_ITEM_WIDTH + 8,
-								offset: (DAY_ITEM_WIDTH + 8) * index,
+								length: DAY_TOTAL_ITEM_WIDTH,
+								offset: DAY_TOTAL_ITEM_WIDTH * index,
 								index,
 							})}
 							renderItem={({ item, index }) => {
@@ -626,28 +703,8 @@ export default function BookingScreen() {
 						/>
 					</View>
 
-					{/* DUŻY, CZYTELNY WYBÓR BOISKA ORLIK (DROPDOWN + DUŻE KAFELKI) */}
+					{/* SZYBKI WYBÓR BOISKA ORLIK (WSZYSTKIE / ORLIK SP / ORLIK PARKOWA) */}
 					<View style={styles.pitchSelectorContainer}>
-						<TouchableOpacity
-							activeOpacity={0.85}
-							style={styles.pitchDropdownBtn}
-							onPress={() => setPitchPickerModalVisible(true)}
-						>
-							<View style={styles.pitchDropdownLeft}>
-								<MaterialCommunityIcons name="soccer-field" size={22} color={COLORS.primary} style={{ marginRight: 8 }} />
-								<View>
-									<Text style={styles.pitchDropdownLabel}>Aktywne boisko:</Text>
-									<Text style={styles.pitchDropdownValue}>{currentPitch.name}</Text>
-								</View>
-							</View>
-
-							<View style={styles.pitchDropdownRight}>
-								<Text style={styles.pitchChangeText}>Zmień</Text>
-								<MaterialIcons name="keyboard-arrow-down" size={24} color={COLORS.primary} />
-							</View>
-						</TouchableOpacity>
-
-						{/* 3 Duże Przyciski Szybkiego Wyboru Boiska */}
 						<View style={styles.quickPitchesRow}>
 							{ORLIK_PITCHES.map((pitch) => {
 								const isSelected = selectedPitchId === pitch.id;
@@ -826,101 +883,283 @@ export default function BookingScreen() {
 						)}
 					</ScrollView>
 
-					{/* Modal Wyboru Boiska Orlik */}
+					{/* Dialog Rezerwacji Orlika (Responsywne Drop Menu) */}
 					<Portal>
 						<Dialog
-							visible={pitchPickerModalVisible}
-							onDismiss={() => setPitchPickerModalVisible(false)}
-							style={styles.dialog}
+							visible={dialogVisible}
+							onDismiss={() => setDialogVisible(false)}
+							style={styles.responsiveDialog}
 						>
-							<Dialog.Title style={styles.dialogTitle}>Wybierz boisko Orlik</Dialog.Title>
-							<Dialog.ScrollArea style={styles.dialogScrollArea}>
-								<ScrollView contentContainerStyle={{ paddingVertical: 10 }}>
-									{ORLIK_PITCHES.map((pitch) => {
-										const isSelected = selectedPitchId === pitch.id;
-										return (
-											<TouchableOpacity
-												key={pitch.id}
-												activeOpacity={0.8}
-												onPress={() => {
-													setSelectedPitchId(pitch.id);
-													setPitchPickerModalVisible(false);
-												}}
-												style={[styles.pitchOptionItem, isSelected && styles.pitchOptionItemActive]}
-											>
-												<View style={[styles.pitchOptionIconBox, isSelected && styles.pitchOptionIconBoxActive]}>
-													<MaterialCommunityIcons
-														name="soccer-field"
-														size={24}
-														color={isSelected ? COLORS.white : COLORS.primary}
-													/>
-												</View>
-												<View style={{ flex: 1 }}>
-													<Text style={[styles.pitchOptionName, isSelected && styles.pitchOptionNameActive]}>
-														{pitch.name}
-													</Text>
-													<Text style={styles.pitchOptionAddress}>{pitch.address}</Text>
-												</View>
-												{isSelected && (
-													<MaterialIcons name="check-circle" size={22} color={COLORS.primary} />
-												)}
-											</TouchableOpacity>
-										);
-									})}
-								</ScrollView>
-							</Dialog.ScrollArea>
-							<Dialog.Actions>
-								<Button onPress={() => setPitchPickerModalVisible(false)}>Zamknij</Button>
-							</Dialog.Actions>
-						</Dialog>
-					</Portal>
-
-					{/* Dialog Rezerwacji Orlika */}
-					<Portal>
-						<Dialog visible={dialogVisible} onDismiss={() => setDialogVisible(false)} style={styles.dialog}>
-							<Dialog.Title style={styles.dialogTitle}>
-								{editOrlikBookingId !== null ? "Edytuj rezerwację Orlika" : "Zarezerwuj boisko Orlik"}
-							</Dialog.Title>
+							<View style={styles.dialogHeaderRow}>
+								<View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
+									<View style={styles.dialogHeaderIcon}>
+										<MaterialCommunityIcons name="calendar-clock" size={22} color={COLORS.primary} />
+									</View>
+									<Text style={styles.dialogTitleText}>
+										{editOrlikBookingId !== null ? "Edytuj rezerwację" : "Rezerwacja boiska Orlik"}
+									</Text>
+								</View>
+								<TouchableOpacity
+									onPress={() => setDialogVisible(false)}
+									hitSlop={8}
+									style={styles.dialogCloseBtn}
+								>
+									<MaterialIcons name="close" size={20} color={COLORS.textLight} />
+								</TouchableOpacity>
+							</View>
 
 							<Dialog.ScrollArea style={styles.dialogScrollArea}>
-								<ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingVertical: 10 }}>
-									{bookingError ? <Text style={styles.errorText}>{bookingError}</Text> : null}
+								<ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingVertical: 12, gap: 14 }}>
+									{/* Komunikat o błędzie */}
+									{bookingError ? (
+										<View style={styles.errorBanner}>
+											<MaterialIcons name="error-outline" size={20} color="#dc2626" />
+											<Text style={styles.errorBannerText}>{bookingError}</Text>
+										</View>
+									) : null}
 
-									{/* Wybór Boiska */}
-									<TouchableOpacity style={styles.selectButton} onPress={() => setFormPitchModalVisible(true)}>
-										<Text style={styles.selectButtonLabel}>Wybierz boisko Orlik:</Text>
-										<Text style={styles.selectButtonValue}>
-											{formPitchLocation.includes("Parkowa") ? "Orlik Gminny (ul. Parkowa 2)" : "Orlik nr 1 przy SP (ul. Wojska Polskiego 1)"}
-										</Text>
-									</TouchableOpacity>
+									{/* ⚠️ OSTRZEŻENIE O KOLIZJI / ZAJĘTOŚCI TERMINU */}
+									{activeConflict ? (
+										<View style={styles.conflictBanner}>
+											<MaterialCommunityIcons name="alert-octagon" size={24} color="#dc2626" />
+											<View style={{ flex: 1 }}>
+												<Text style={styles.conflictTitle}>KOLIZJA: Boisko jest już zajęte!</Text>
+												<Text style={styles.conflictDescription}>
+													W godz. {activeConflict.startTime} - {activeConflict.endTime} zaplanowano:
+													{"\n"}• <Text style={{ fontFamily: FONTS.bold }}>{activeConflict.title}</Text> ({activeConflict.bookerName})
+												</Text>
+												<Text style={styles.conflictHint}>Wybierz inną godzinę lub drugie boisko.</Text>
+											</View>
+										</View>
+									) : null}
 
-									{/* Wybór Daty */}
-									<TouchableOpacity style={styles.selectButton} onPress={() => setDatePickerVisible(true)}>
-										<Text style={styles.selectButtonLabel}>Data rezerwacji:</Text>
-										<Text style={styles.selectButtonValue}>{bookingDate || "Wybierz datę..."}</Text>
-									</TouchableOpacity>
-
-									{/* Godziny Od - Do */}
-									<View style={styles.timeInputsRow}>
+									{/* 1. DROP MENU: Wybór boiska Orlik */}
+									<View style={styles.dropdownContainer}>
+										<Text style={styles.fieldSectionLabel}>Wybierz boisko Orlik:</Text>
 										<TouchableOpacity
-											style={[styles.selectButton, { flex: 1, marginRight: 6 }]}
-											onPress={() => setStartTimePickerVisible(true)}
+											activeOpacity={0.85}
+											onPress={() => {
+												setPitchDropdownOpen(!pitchDropdownOpen);
+												setSlotsDropdownOpen(false);
+												setPurposeDropdownOpen(false);
+											}}
+											style={[styles.dropdownHeader, pitchDropdownOpen && styles.dropdownHeaderActive]}
 										>
-											<Text style={styles.selectButtonLabel}>Godzina od:</Text>
-											<Text style={styles.selectButtonValue}>{startTime}</Text>
+											<MaterialCommunityIcons name="soccer-field" size={20} color={COLORS.primary} />
+											<View style={{ flex: 1 }}>
+												<Text style={styles.dropdownSelectedText} numberOfLines={1}>
+													{formPitchLocation.includes("Parkowa")
+														? "Orlik Gminny (ul. Parkowa 2)"
+														: "Orlik nr 1 przy SP (ul. Wojska Polskiego 1)"}
+												</Text>
+											</View>
+											<MaterialIcons
+												name={pitchDropdownOpen ? "keyboard-arrow-up" : "keyboard-arrow-down"}
+												size={22}
+												color={COLORS.textLight}
+											/>
 										</TouchableOpacity>
 
+										{pitchDropdownOpen && (
+											<View style={styles.dropdownBody}>
+												{ORLIK_PITCHES.slice(1).map((pitch) => {
+													const isSelected = formPitchLocation === pitch.address;
+													return (
+														<TouchableOpacity
+															key={pitch.id}
+															activeOpacity={0.8}
+															onPress={() => {
+																setFormPitchLocation(pitch.address);
+																setPitchDropdownOpen(false);
+															}}
+															style={[styles.dropdownOption, isSelected && styles.dropdownOptionActive]}
+														>
+															<MaterialCommunityIcons
+																name="soccer-field"
+																size={18}
+																color={isSelected ? COLORS.primary : COLORS.textLight}
+															/>
+															<View style={{ flex: 1 }}>
+																<Text style={[styles.dropdownOptionTitle, isSelected && styles.dropdownOptionTitleActive]}>
+																	{pitch.name}
+																</Text>
+																<Text style={styles.dropdownOptionSubtitle}>{pitch.address}</Text>
+															</View>
+															{isSelected && (
+																<MaterialIcons name="check" size={18} color={COLORS.primary} />
+															)}
+														</TouchableOpacity>
+													);
+												})}
+											</View>
+										)}
+									</View>
+
+									{/* 2. Wybór Daty */}
+									<View>
+										<Text style={styles.fieldSectionLabel}>Data rezerwacji:</Text>
 										<TouchableOpacity
-											style={[styles.selectButton, { flex: 1, marginLeft: 6 }]}
-											onPress={() => setEndTimePickerVisible(true)}
+											activeOpacity={0.85}
+											style={styles.dropdownHeader}
+											onPress={() => setDatePickerVisible(true)}
 										>
-											<Text style={styles.selectButtonLabel}>Godzina do:</Text>
-											<Text style={styles.selectButtonValue}>{endTime}</Text>
+											<MaterialIcons name="calendar-today" size={20} color={COLORS.primary} />
+											<Text style={styles.dropdownSelectedText}>{bookingDate || "Wybierz datę..."}</Text>
+											<MaterialIcons name="edit-calendar" size={20} color={COLORS.textLight} />
 										</TouchableOpacity>
 									</View>
 
+									{/* 3. DROP MENU: Przedziały godzinowe */}
+									<View style={styles.dropdownContainer}>
+										<Text style={styles.fieldSectionLabel}>Godziny rezerwacji:</Text>
+										<TouchableOpacity
+											activeOpacity={0.85}
+											onPress={() => {
+												setSlotsDropdownOpen(!slotsDropdownOpen);
+												setPitchDropdownOpen(false);
+												setPurposeDropdownOpen(false);
+											}}
+											style={[styles.dropdownHeader, slotsDropdownOpen && styles.dropdownHeaderActive]}
+										>
+											<MaterialCommunityIcons name="clock-time-four-outline" size={20} color={COLORS.primary} />
+											<View style={{ flex: 1 }}>
+												<Text style={styles.dropdownSelectedText}>
+													{startTime} - {endTime}
+												</Text>
+											</View>
+											<MaterialIcons
+												name={slotsDropdownOpen ? "keyboard-arrow-up" : "keyboard-arrow-down"}
+												size={22}
+												color={COLORS.textLight}
+											/>
+										</TouchableOpacity>
+
+										{slotsDropdownOpen && (
+											<View style={styles.dropdownBody}>
+												{[
+													{ label: "16:00 - 17:30 (Popołudnie)", start: "16:00", end: "17:30" },
+													{ label: "17:00 - 18:30 (Standard)", start: "17:00", end: "18:30" },
+													{ label: "18:30 - 20:00 (Wieczór)", start: "18:30", end: "20:00" },
+													{ label: "20:00 - 21:30 (Późny wieczór)", start: "20:00", end: "21:30" },
+												].map((slot) => {
+													const isSelected = startTime === slot.start && endTime === slot.end;
+													return (
+														<TouchableOpacity
+															key={slot.label}
+															activeOpacity={0.8}
+															onPress={() => {
+																setStartTime(slot.start);
+																setEndTime(slot.end);
+																setSlotsDropdownOpen(false);
+															}}
+															style={[styles.dropdownOption, isSelected && styles.dropdownOptionActive]}
+														>
+															<MaterialCommunityIcons
+																name="clock-outline"
+																size={18}
+																color={isSelected ? COLORS.primary : COLORS.textLight}
+															/>
+															<Text style={[styles.dropdownOptionTitle, isSelected && styles.dropdownOptionTitleActive, { flex: 1 }]}>
+																{slot.label}
+															</Text>
+															{isSelected && (
+																<MaterialIcons name="check" size={18} color={COLORS.primary} />
+															)}
+														</TouchableOpacity>
+													);
+												})}
+
+												{/* Ręczny wybór godziny */}
+												<View style={styles.customTimeRow}>
+													<TouchableOpacity
+														style={styles.customTimeBtn}
+														onPress={() => setStartTimePickerVisible(true)}
+													>
+														<Text style={styles.customTimeLabel}>Zmień Od:</Text>
+														<Text style={styles.customTimeValue}>{startTime}</Text>
+													</TouchableOpacity>
+
+													<TouchableOpacity
+														style={styles.customTimeBtn}
+														onPress={() => setEndTimePickerVisible(true)}
+													>
+														<Text style={styles.customTimeLabel}>Zmień Do:</Text>
+														<Text style={styles.customTimeValue}>{endTime}</Text>
+													</TouchableOpacity>
+												</View>
+											</View>
+										)}
+									</View>
+
+									{/* 4. DROP MENU: Szablon celu / drużyny */}
+									<View style={styles.dropdownContainer}>
+										<Text style={styles.fieldSectionLabel}>Cel rezerwacji / Drużyna:</Text>
+										<TouchableOpacity
+											activeOpacity={0.85}
+											onPress={() => {
+												setPurposeDropdownOpen(!purposeDropdownOpen);
+												setPitchDropdownOpen(false);
+												setSlotsDropdownOpen(false);
+											}}
+											style={[styles.dropdownHeader, purposeDropdownOpen && styles.dropdownHeaderActive]}
+										>
+											<MaterialCommunityIcons name="soccer" size={20} color={COLORS.primary} />
+											<View style={{ flex: 1 }}>
+												<Text style={styles.dropdownSelectedText} numberOfLines={1}>
+													{bookingDesc || "Wybierz szablon lub wpisz poniżej..."}
+												</Text>
+											</View>
+											<MaterialIcons
+												name={purposeDropdownOpen ? "keyboard-arrow-up" : "keyboard-arrow-down"}
+												size={22}
+												color={COLORS.textLight}
+											/>
+										</TouchableOpacity>
+
+										{purposeDropdownOpen && (
+											<View style={styles.dropdownBody}>
+												{[
+													"Trening Seniorów",
+													"Trening Juniorów",
+													"Trening Trampkarzy",
+													"Trening Młodzików",
+													"Trening Żaków",
+													"Trening Skrzatów",
+													"Mecz sparingowy",
+													"Zajęcia ogólnorozwojowe",
+												].map((purpose) => {
+													const isSelected = bookingDesc === purpose;
+													return (
+														<TouchableOpacity
+															key={purpose}
+															activeOpacity={0.8}
+															onPress={() => {
+																setBookingDesc(purpose);
+																setPurposeDropdownOpen(false);
+															}}
+															style={[styles.dropdownOption, isSelected && styles.dropdownOptionActive]}
+														>
+															<MaterialCommunityIcons
+																name="shield-outline"
+																size={18}
+																color={isSelected ? COLORS.primary : COLORS.textLight}
+															/>
+															<Text style={[styles.dropdownOptionTitle, isSelected && styles.dropdownOptionTitleActive, { flex: 1 }]}>
+																{purpose}
+															</Text>
+															{isSelected && (
+																<MaterialIcons name="check" size={18} color={COLORS.primary} />
+															)}
+														</TouchableOpacity>
+													);
+												})}
+											</View>
+										)}
+									</View>
+
+									{/* Pole tekstowe własnego opisu */}
 									<TextInput
-										label="Cel / Drużyna (np. Trening Żaków, Mecz)"
+										label="Własny opis / notatka"
 										value={bookingDesc}
 										onChangeText={setBookingDesc}
 										mode="outlined"
@@ -928,91 +1167,49 @@ export default function BookingScreen() {
 										style={styles.input}
 										outlineColor="#e2e8f0"
 										activeOutlineColor={COLORS.primary}
-										left={<TextInput.Icon icon="soccer" />}
+										left={<TextInput.Icon icon="lead-pencil" />}
 									/>
 								</ScrollView>
 							</Dialog.ScrollArea>
 
-							<Dialog.Actions style={styles.dialogActions}>
-								<Button onPress={() => setDialogVisible(false)} textColor={COLORS.textLight}>
-									Anuluj
-								</Button>
-								<Button
-									mode="contained"
-									onPress={handleSaveOrlikBooking}
-									loading={bookingLoading}
-									disabled={bookingLoading}
-									buttonColor={COLORS.primary}
-									textColor={COLORS.white}
+							<View style={styles.modalActionRow}>
+								<TouchableOpacity
+									activeOpacity={0.75}
+									onPress={() => setDialogVisible(false)}
+									style={styles.modalCancelBtn}
 								>
-									{editOrlikBookingId !== null ? "Zapisz" : "Zarezerwuj"}
-								</Button>
-							</Dialog.Actions>
-						</Dialog>
-					</Portal>
+									<Text style={styles.modalCancelBtnText}>Anuluj</Text>
+								</TouchableOpacity>
 
-					{/* Modal wyboru boiska w formularzu */}
-					<Portal>
-						<Dialog visible={formPitchModalVisible} onDismiss={() => setFormPitchModalVisible(false)} style={styles.dialog}>
-							<Dialog.Title style={styles.dialogTitle}>Wybierz boisko</Dialog.Title>
-							<Dialog.ScrollArea style={styles.dialogScrollArea}>
-								<ScrollView contentContainerStyle={{ paddingVertical: 10 }}>
-									<View style={{ gap: 8 }}>
-										{ORLIK_PITCHES.slice(1).map((pitch) => {
-											const isSelected = formPitchLocation === pitch.address;
-											return (
-												<TouchableOpacity
-													key={pitch.id}
-													activeOpacity={0.8}
-													onPress={() => {
-														setFormPitchLocation(pitch.address);
-														setFormPitchModalVisible(false);
-													}}
-													style={[
-														styles.pitchOptionItem,
-														isSelected && styles.pitchOptionItemActive,
-													]}
-												>
-													<View
-														style={[
-															styles.pitchOptionIconBox,
-															isSelected && styles.pitchOptionIconBoxActive,
-														]}
-													>
-														<MaterialCommunityIcons
-															name="soccer-field"
-															size={22}
-															color={isSelected ? COLORS.white : COLORS.primary}
-														/>
-													</View>
-													<View style={{ flex: 1 }}>
-														<Text
-															style={[
-																styles.pitchOptionName,
-																isSelected && styles.pitchOptionNameActive,
-															]}
-														>
-															{pitch.name}
-														</Text>
-														<Text style={styles.pitchOptionAddress}>{pitch.address}</Text>
-													</View>
-													{isSelected && (
-														<MaterialCommunityIcons
-															name="check-circle"
-															size={22}
-															color={COLORS.primary}
-														/>
-													)}
-												</TouchableOpacity>
-											);
-										})}
-									</View>
-
-								</ScrollView>
-							</Dialog.ScrollArea>
-							<Dialog.Actions>
-								<Button onPress={() => setFormPitchModalVisible(false)}>Zamknij</Button>
-							</Dialog.Actions>
+								<TouchableOpacity
+									activeOpacity={0.85}
+									onPress={handleSaveOrlikBooking}
+									disabled={bookingLoading || Boolean(activeConflict)}
+									style={[
+										styles.modalSubmitBtn,
+										Boolean(activeConflict) && styles.modalSubmitBtnDisabled,
+									]}
+								>
+									{bookingLoading ? (
+										<ActivityIndicator size="small" color={COLORS.white} />
+									) : (
+										<View style={styles.modalSubmitContent}>
+											<MaterialCommunityIcons
+												name={activeConflict ? "alert-circle" : (editOrlikBookingId !== null ? "check-circle" : "soccer")}
+												size={20}
+												color={COLORS.white}
+											/>
+											<Text style={styles.modalSubmitBtnText}>
+												{activeConflict
+													? "Termin zajęty"
+													: editOrlikBookingId !== null
+													? "Zapisz zmiany"
+													: "Zarezerwuj boisko"}
+											</Text>
+										</View>
+									)}
+								</TouchableOpacity>
+							</View>
 						</Dialog>
 					</Portal>
 
@@ -1130,8 +1327,8 @@ const styles = StyleSheet.create({
 		color: COLORS.primary,
 	},
 	calendarListContent: {
-		paddingHorizontal: 12,
-		gap: 8,
+		paddingHorizontal: CALENDAR_PADDING,
+		gap: DAY_GAP,
 	},
 	dayItem: {
 		width: DAY_ITEM_WIDTH,
@@ -1142,7 +1339,6 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		borderWidth: 1,
 		borderColor: "#e2e8f0",
-		marginRight: 8,
 	},
 	dayItemActive: {
 		backgroundColor: COLORS.primary,
@@ -1198,42 +1394,6 @@ const styles = StyleSheet.create({
 		paddingVertical: 10,
 		borderBottomWidth: 1,
 		borderBottomColor: "#e2e8f0",
-	},
-	pitchDropdownBtn: {
-		flexDirection: "row",
-		justifyContent: "space-between",
-		alignItems: "center",
-		backgroundColor: "#f8fafc",
-		borderRadius: 12,
-		paddingHorizontal: 14,
-		paddingVertical: 10,
-		borderWidth: 1,
-		borderColor: "#e2e8f0",
-		marginBottom: 10,
-	},
-	pitchDropdownLeft: {
-		flexDirection: "row",
-		alignItems: "center",
-	},
-	pitchDropdownLabel: {
-		fontFamily: FONTS.regular,
-		fontSize: 11,
-		color: COLORS.textLight,
-	},
-	pitchDropdownValue: {
-		fontFamily: FONTS.bold,
-		fontSize: 14,
-		color: COLORS.textDark,
-	},
-	pitchDropdownRight: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: 2,
-	},
-	pitchChangeText: {
-		fontFamily: FONTS.semiBold,
-		fontSize: 13,
-		color: COLORS.primary,
 	},
 	quickPitchesRow: {
 		flexDirection: "row",
@@ -1547,6 +1707,185 @@ const styles = StyleSheet.create({
 		color: COLORS.textLight,
 		marginTop: 2,
 	},
+	responsiveDialog: {
+		backgroundColor: COLORS.white,
+		borderRadius: 22,
+		maxHeight: "88%",
+		marginHorizontal: 16,
+		elevation: 8,
+		shadowColor: "#000",
+		shadowOffset: { width: 0, height: 6 },
+		shadowOpacity: 0.18,
+		shadowRadius: 14,
+	},
+	dialogHeaderRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "space-between",
+		paddingHorizontal: 20,
+		paddingTop: 18,
+		paddingBottom: 8,
+	},
+	dialogHeaderIcon: {
+		width: 36,
+		height: 36,
+		borderRadius: 10,
+		backgroundColor: "#eff6ff",
+		justifyContent: "center",
+		alignItems: "center",
+	},
+	dialogTitleText: {
+		fontFamily: FONTS.bold,
+		fontSize: 17,
+		color: COLORS.textDark,
+	},
+	dialogCloseBtn: {
+		padding: 6,
+		borderRadius: 20,
+		backgroundColor: "#f1f5f9",
+	},
+	errorBanner: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 8,
+		padding: 10,
+		borderRadius: 10,
+		backgroundColor: "#fee2e2",
+		borderWidth: 1,
+		borderColor: "#fca5a5",
+	},
+	errorBannerText: {
+		fontFamily: FONTS.medium,
+		fontSize: 12,
+		color: "#b91c1c",
+		flex: 1,
+	},
+	conflictBanner: {
+		flexDirection: "row",
+		alignItems: "flex-start",
+		gap: 10,
+		padding: 12,
+		borderRadius: 12,
+		backgroundColor: "#fef2f2",
+		borderWidth: 1.5,
+		borderColor: "#ef4444",
+	},
+	conflictTitle: {
+		fontFamily: FONTS.bold,
+		fontSize: 13,
+		color: "#991b1b",
+	},
+	conflictDescription: {
+		fontFamily: FONTS.regular,
+		fontSize: 12,
+		color: "#7f1d1d",
+		marginTop: 3,
+		lineHeight: 16,
+	},
+	conflictHint: {
+		fontFamily: FONTS.semiBold,
+		fontSize: 11,
+		color: "#dc2626",
+		marginTop: 4,
+	},
+	fieldSectionLabel: {
+		fontFamily: FONTS.semiBold,
+		fontSize: 12.5,
+		color: COLORS.textDark,
+		marginBottom: 6,
+		marginTop: 6,
+	},
+	dropdownContainer: {
+		marginBottom: 4,
+	},
+	dropdownHeader: {
+		flexDirection: "row",
+		alignItems: "center",
+		paddingHorizontal: 14,
+		paddingVertical: 12,
+		borderRadius: 12,
+		borderWidth: 1.5,
+		borderColor: "#e2e8f0",
+		backgroundColor: "#f8fafc",
+		gap: 10,
+	},
+	dropdownHeaderActive: {
+		borderColor: COLORS.primary,
+		backgroundColor: "#ffffff",
+	},
+	dropdownSelectedText: {
+		fontFamily: FONTS.semiBold,
+		fontSize: 13.5,
+		color: COLORS.textDark,
+	},
+	dropdownBody: {
+		marginTop: 6,
+		borderRadius: 14,
+		borderWidth: 1,
+		borderColor: "#e2e8f0",
+		backgroundColor: "#ffffff",
+		padding: 6,
+		gap: 4,
+		elevation: 4,
+		shadowColor: "#000",
+		shadowOffset: { width: 0, height: 4 },
+		shadowOpacity: 0.1,
+		shadowRadius: 8,
+	},
+	dropdownOption: {
+		flexDirection: "row",
+		alignItems: "center",
+		paddingHorizontal: 12,
+		paddingVertical: 10,
+		borderRadius: 10,
+		gap: 10,
+	},
+	dropdownOptionActive: {
+		backgroundColor: "#eff6ff",
+	},
+	dropdownOptionTitle: {
+		fontFamily: FONTS.semiBold,
+		fontSize: 13,
+		color: COLORS.textDark,
+	},
+	dropdownOptionTitleActive: {
+		color: COLORS.primary,
+		fontFamily: FONTS.bold,
+	},
+	dropdownOptionSubtitle: {
+		fontFamily: FONTS.regular,
+		fontSize: 11,
+		color: COLORS.textLight,
+		marginTop: 2,
+	},
+	customTimeRow: {
+		flexDirection: "row",
+		gap: 8,
+		marginTop: 6,
+		paddingTop: 8,
+		borderTopWidth: 1,
+		borderTopColor: "#f1f5f9",
+	},
+	customTimeBtn: {
+		flex: 1,
+		padding: 8,
+		borderRadius: 8,
+		backgroundColor: "#f8fafc",
+		borderWidth: 1,
+		borderColor: "#cbd5e1",
+		alignItems: "center",
+	},
+	customTimeLabel: {
+		fontFamily: FONTS.regular,
+		fontSize: 10,
+		color: COLORS.textLight,
+	},
+	customTimeValue: {
+		fontFamily: FONTS.bold,
+		fontSize: 13,
+		color: COLORS.primary,
+		marginTop: 2,
+	},
 	selectButton: {
 		backgroundColor: "#f8fafc",
 		borderWidth: 1,
@@ -1566,18 +1905,66 @@ const styles = StyleSheet.create({
 		fontSize: 13.5,
 		color: COLORS.textDark,
 	},
-	timeInputsRow: {
-		flexDirection: "row",
-	},
 	input: {
 		backgroundColor: COLORS.white,
-		marginBottom: 10,
 		fontSize: 13.5,
 		fontFamily: FONTS.regular,
 	},
-	dialogActions: {
-		paddingHorizontal: 16,
-		paddingBottom: 10,
+	modalActionRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 12,
+		paddingHorizontal: 18,
+		paddingVertical: 14,
+		borderTopWidth: 1,
+		borderTopColor: "#f1f5f9",
+		backgroundColor: "#ffffff",
+		borderBottomLeftRadius: 22,
+		borderBottomRightRadius: 22,
+	},
+	modalCancelBtn: {
+		flex: 1,
+		height: 48,
+		borderRadius: 14,
+		backgroundColor: "#f1f5f9",
+		borderWidth: 1,
+		borderColor: "#e2e8f0",
+		justifyContent: "center",
+		alignItems: "center",
+	},
+	modalCancelBtnText: {
+		fontFamily: FONTS.semiBold,
+		fontSize: 14,
+		color: "#64748b",
+	},
+	modalSubmitBtn: {
+		flex: 2,
+		height: 48,
+		borderRadius: 14,
+		backgroundColor: COLORS.primary,
+		justifyContent: "center",
+		alignItems: "center",
+		elevation: 3,
+		shadowColor: COLORS.primary,
+		shadowOffset: { width: 0, height: 3 },
+		shadowOpacity: 0.25,
+		shadowRadius: 6,
+	},
+	modalSubmitBtnDisabled: {
+		backgroundColor: "#ef4444",
+		shadowColor: "#ef4444",
+		opacity: 0.85,
+	},
+	modalSubmitContent: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 8,
+	},
+	modalSubmitBtnText: {
+		fontFamily: FONTS.bold,
+		fontSize: 14,
+		color: COLORS.white,
+		letterSpacing: -0.1,
 	},
 	errorText: {
 		fontFamily: FONTS.medium,

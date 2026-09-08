@@ -109,14 +109,49 @@ Ten dokument zawiera historię zmian, przegląd architektury kodu po migracji do
 
 8. **Interaktywny Kalendarz Dni & Mobilny UX w Terminarzu (`training.tsx`)**:
    - Wdrożono poziomy pasek kalendarza (**Date Strip Carousel**) z automatycznym centrowaniem aktywnego dnia, kropkami wskaźnikowymi (🔵 Treningi, 🟡 Mecze) i strzałkami nawigacji tygodniowej.
-   - Dodano **duży rozwijany selektor widoków (Dropdown Selector)** `[ 📅 Widok: Wybrany dzień ▾ ]` wraz z powiększonymi kafelkami dotykowymi (`Dzień`, `Treningi`, `Mecze`) ułatwiającymi obsługę kciukiem.
+   - **Czysty przełącznik widoków**: Usunięto zbędny podwójny dropdown z nagłówkiem `[ Widok: Wybrany dzień ▾ ]` i powiązanym modalem, pozostawiając bezpośrednie, duże dotykowe kafelki widoków (`Dzień`, `Treningi`, `Mecze`) ułatwiające błyskawiczne przełączanie kciukiem.
    - Przycisk **„Dodaj trening lub mecz”** został powiększony do pełnowymiarowego przycisku akcji o wysokości ~50px z dużą ikoną `+`.
 
-9. **Dedykowany Grafik Boisk Orlik & Synchronizacja Treningów (`booking.tsx`)**:
-   - Usunięto zbędny moduł zapisu na treningi, dedykując ekran w 100% grafikowi boisk Orlik w Strzegowie.
-   - Wdrożono **pełną automatyczną synchronizację treningów**: każdy trening zaplanowany na Orliku pojawia się w harmonogramie z etykietą `TRENING DRUŻYNY`, nazwiskiem trenera i godzinami.
-   - Wdrożono **duży selektor obiektów Orlik** (Dropdown + duże kafelki *Wszystkie*, *Orlik SP*, *Orlik Parkowa*) z pełnymi adresami obiektów klubowych.
-   - Przycisk **„Zarezerwuj godziny na Orliku”** zyskał duży format, wyraźną ikonę i pełną szerokość.
+9. **Optymalizacja Nawigacji i Renderowania**:
+   - Oczyszczono zbędne przejścia ekranowe i wyeliminowano migotanie zakładek.
+
+10. **Aktualizacja do Expo SDK 57 & Eliminacja Błędu Reanimated/Worklets**:
+   - Zaktualizowano projekt do **Expo SDK 57** (`expo: ~57.0.20`, `react: 19.2.3`, `react-native: ^0.86.3`).
+   - Rozwiązano krytyczny błąd Expo Go `[ReanimatedError: Your installed version of Worklets (0.10.1) is not compatible with installed version of Reanimated (4.1.7)]`.
+   - W [`components/ClubTabBar.tsx`](file:///d:/Nowy%20folder/mlawianka-app/components/ClubTabBar.tsx) całkowicie wyeliminowano zależność od `react-native-reanimated` i `react-native-worklets` na rzecz natywnego mechanizmu `Animated` z `react-native` (`useNativeDriver: true`). Zapewnia to identyczną płynność 60 FPS animacji paska dolnego bez ryzyka awarii natywnych bibliotek C++ w Expo Go.
+   - Oczyszczono konfigurację [`babel.config.js`](file:///d:/Nowy%20folder/mlawianka-app/babel.config.js) i [`package.json`](file:///d:/Nowy%20folder/mlawianka-app/package.json).
+
+11. **System Wykrywania i Blokady Kolizji Terminów na Orliku & Uproszczony Pasek Wyboru Boisk (`booking.tsx`)**:
+    - **Usunięcie podwójnego wyboru boisk**: Wyeliminowano zduplikowany górny pasek z dropdownem `Aktywne boisko: ... Zmień` oraz powiązany modal, pozostawiając bezpośrednie, ergonomiczne kafelki wyboru (`Wszystkie`, `Orlik SP (nr 1)`, `Orlik Parkowa (Gminny)`).
+    - **Algorytm weryfikacji kolizji (`checkBookingConflict`)**: Aplikacja sprawdza w czasie rzeczywistym nakładanie się przedziałów czasowych (`newStart < existingEnd && newEnd > existingStart`) z:
+      1. Wszystkimi istniejącymi rezerwacjami sztabu na danym Orliku (`orlik_bookings`),
+      2. Zaplanowanymi treningami drużyn klubowych odbywającymi się na danym Orliku (`trainings`).
+    - **Wizualny baner ostrzegawczy (`conflictBanner`)**: W momencie wybrania kolizyjnej godziny lub boiska, modal natychmiast wyświetla czerwony baner z informacją, przez kogo i w jakich godzinach boisko jest już zajęte.
+    - **Blokada zatwierdzenia formularza**: Przycisk zapisu zostaje wyszarzony, zablokowany i zmienia etykietę na `🚫 Termin zajęty` uniemożliwiając podwójną rezerwację.
+
+12. **Wyśrodkowany 5-Dniowy Pasek Kalendarza (2 Dni po Lewej, Środek, 2 Dni po Prawej)**:
+    - Wdrożono dynamiczne obliczanie szerokości kafelka dnia w oparciu o szerokość ekranu urządzenia:
+      `DAY_ITEM_WIDTH = Math.floor((SCREEN_WIDTH - CALENDAR_PADDING * 2 - 4 * DAY_GAP) / 5)`.
+    - Na ekranie mieści się zawsze dokładnie **5 kafelków dni** bez ucinania krawędzi: **2 dni po lewej, wybrany/obecny dzień idealnie pośrodku, 2 dni po prawej**.
+    - Dodano automatyczne centrowanie aktywnego dnia przy starcie ekranu oraz przy zmianie daty (`scrollToIndex({ index: Math.max(0, activeIndex - 2) })`).
+    - Zaimplementowano w [`app/(tabs)/booking.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/booking.tsx) oraz [`app/(tabs)/training.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/training.tsx).
+
+13. **Responsywne Menu Rozwijane (Drop Menu) zamiast Zagnieżdżonych Modali / List**:
+    - Zastąpiono niewygodne listy i sub-modale eleganckimi, rozwijanymi menu selekcyjnymi (Dropdown Select).
+    - **Rezerwacja Orlika (`booking.tsx`)**:
+      - Wybór boiska Orlik z podglądem adresu (`SP / Wojska Polskiego` vs `Orlik Gminny / Parkowa`),
+      - Gotowe szybkie sloty czasowe (`16:00 - 17:30`, `17:00 - 18:30`, `18:30 - 20:00`, `20:00 - 21:30`) lub wybór manualny,
+      - Szablony celu rezerwacji (np. *Trening drużyny*, *Mecz sparingowy*, *Zajęcia indywidualne*, *Konserwacja/Prace*).
+    - **Terminarz Treningów i Meczów (`training.tsx`)**:
+      - Rozwijany selektor drużyny trenera,
+      - Szablony jednostek treningowych (*Trening techniczny*, *Trening taktyczny*, *Trening motoryczny / siłowy*, *Gry wewnętrzne / sparing*),
+      - Szybkie godziny rozpoczęcia,
+      - Rozwijany wybór obiektu klubowego.
+
+14. **Nowy Design Przycisków Akcji w Modalach Formularzy**:
+    - Usunięto przestarzałe przyciski na rzecz nowoczesnego, responsywnego paska akcji `modalActionRow`:
+      - **Przycisk Anuluj (`modalCancelBtn`)**: Estetyczne jasnoszare tło (`#F1F5F9`), stonowany tekst i ikona `close-circle-outline`.
+      - **Przycisk Zapisu / Rezerwacji (`modalSubmitBtn`)**: Nowoczesny zaokrąglony przycisk (radius `14px`) w barwach Royal Blue (`COLORS.primary`), z cieniami, wyrazistymi ikonami (`calendar-plus`, `check-circle-outline`, `content-save-outline`) oraz dynamiczną obsługą stanu zablokowania przy kolizji.
 
 ---
 
@@ -166,12 +201,14 @@ npx expo start -c
 
 | Plik | Status | Opis zmiany |
 | :--- | :--- | :--- |
-| [`app.json`](file:///d:/Nowy%20folder/mlawianka-app/app.json) | Zmodyfikowany | Nowa nazwa "GKS Strzegowo", slug, bundleIdentifier i Android package. |
-| [`package.json`](file:///d:/Nowy%20folder/mlawianka-app/package.json) | Zmodyfikowany | Zależności `expo-image-picker`, `expo-notifications`. |
+| [`app.json`](file:///d:/Nowy%20folder/mlawianka-app/app.json) | Zmodyfikowany | Konfiguracja SDK 57, splash screen plugin, platforms i permisje. |
+| [`package.json`](file:///d:/Nowy%20folder/mlawianka-app/package.json) | Zmodyfikowany | Aktualizacja do Expo SDK 57, React 19, React Native 0.86, usunięcie niekompatybilnego `react-native-reanimated`. |
+| [`babel.config.js`](file:///d:/Nowy%20folder/mlawianka-app/babel.config.js) | Zmodyfikowany | Usunięcie wtyczki reanimated. |
+| [`components/ClubTabBar.tsx`](file:///d:/Nowy%20folder/mlawianka-app/components/ClubTabBar.tsx) | Zmodyfikowany | Zastąpienie Reanimated wbudowanym `Animated` z `useNativeDriver: true`. |
 | [`css/colors.ts`](file:///d:/Nowy%20folder/mlawianka-app/css/colors.ts) | Zmodyfikowany | Kolorystyka klubowa GKS Strzegowo (Royal Blue). |
 | [`types/booking.ts`](file:///d:/Nowy%20folder/mlawianka-app/types/booking.ts) | Zmodyfikowany | Dodanie pola `location?: string` w `OrlikBooking`. |
 | [`app/(tabs)/news.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/news.tsx) | Zmodyfikowany | Karuzela do 3 zdjęć, siatka emotek, reakcje kibiców, multi-team targeting, FAB. |
-| [`app/(tabs)/training.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/training.tsx) | Zmodyfikowany | Interaktywny kalendarz dni, duży selektor widoków Dropdown, uproszczone karty i powiększony przycisk dodawania. |
-| [`app/(tabs)/booking.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/booking.tsx) | Zmodyfikowany | Grafik boisk Orlik, synchronizacja treningów, duży selektor obiektów, powiększony przycisk rezerwacji. |
+| [`app/(tabs)/training.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/training.tsx) | Zmodyfikowany | Wyśrodkowany 5-dniowy kalendarz (2 po lewej, 1 środek, 2 po prawej), responsywny modal z Dropdown Menus (drużyna, szablon jednostki, godzina, obiekt) oraz nowoczesne przyciski akcji. |
+| [`app/(tabs)/booking.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/booking.tsx) | Zmodyfikowany | Algorytm wykrywania i blokady kolizji terminów na Orliku, interaktywny baner, responsywne Drop Menu (boisko, sloty, cel) oraz wyśrodkowany 5-dniowy kalendarz i nowe przyciski akcji. |
 | [`app/(tabs)/chat.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/chat.tsx) | Zmodyfikowany | Czat realtime z wykluczeniem dzieci i bezpośrednim kontaktem rodzic-trener. |
 | [`supabase/migrations/20260821140000_orlik_location.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260821140000_orlik_location.sql) | **Nowy** | Kolumna `location` w `orlik_bookings`. |

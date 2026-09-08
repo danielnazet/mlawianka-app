@@ -10,6 +10,7 @@ import {
 	Alert,
 	Animated,
 	FlatList,
+	Dimensions,
 } from "react-native";
 import {
 	Card,
@@ -32,7 +33,12 @@ import { COLORS } from "../../css/colors";
 import { FONTS } from "../../css/fonts";
 import { Team, Training, Match } from "../../types";
 
-const DAY_ITEM_WIDTH = 62;
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const CALENDAR_PADDING = 12;
+const DAY_GAP = 6;
+// 5 dni widocznych na ekranie (2 po lewej, obecny na środku, 2 po prawej)
+const DAY_ITEM_WIDTH = Math.floor((SCREEN_WIDTH - CALENDAR_PADDING * 2 - 4 * DAY_GAP) / 5);
+const DAY_TOTAL_ITEM_WIDTH = DAY_ITEM_WIDTH + DAY_GAP;
 
 const VIEW_OPTIONS = [
 	{
@@ -63,7 +69,6 @@ export default function TrainingScreen() {
 	const [teams, setTeams] = useState<Team[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
-	const [viewPickerModalVisible, setViewPickerModalVisible] = useState(false);
 
 	// Dzisiejsza data jako klucz YYYY-MM-DD
 	const todayDateKey = useMemo(() => {
@@ -98,6 +103,10 @@ export default function TrainingScreen() {
 	const [formDate, setFormDate] = useState("");
 	const [formResult, setFormResult] = useState("");
 	const [formError, setFormError] = useState("");
+	const [teamDropdownOpen, setTeamDropdownOpen] = useState(false);
+	const [templateDropdownOpen, setTemplateDropdownOpen] = useState(false);
+	const [locationDropdownOpen, setLocationDropdownOpen] = useState(false);
+	const [hourDropdownOpen, setHourDropdownOpen] = useState(false);
 	const [actionLoading, setActionLoading] = useState(false);
 
 	const isCoachOrAdmin = profile?.role === "admin" || profile?.role === "coach";
@@ -151,10 +160,6 @@ export default function TrainingScreen() {
 	const selectedDayInfo = useMemo(() => {
 		return calendarDays.find((d) => d.dateKey === selectedDateKey) || calendarDays[14];
 	}, [calendarDays, selectedDateKey]);
-
-	const currentViewOption = useMemo(() => {
-		return VIEW_OPTIONS.find((v) => v.id === activeTab) || VIEW_OPTIONS[0];
-	}, [activeTab]);
 
 	const handleTabChange = (newTab: string) => {
 		if (newTab === activeTab) return;
@@ -487,13 +492,18 @@ export default function TrainingScreen() {
 	const openAddDialog = () => {
 		setEditEventId(null);
 		setEventType("training");
-		setFormTitle("");
+		const coachName = profile ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim() : "";
+		const defaultTeamId = profile?.team_id ? profile.team_id.toString() : (teams[0]?.id?.toString() || "");
+		const teamObj = teams.find(t => t.id.toString() === defaultTeamId);
+		setFormTitle(teamObj ? `Trening ${teamObj.name}` : "Trening piłkarski");
 		setFormDescription("");
-		setFormCoach(profile ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim() : "");
-		setFormTime("");
+		setFormCoach(coachName);
+
+		const dayInfo = selectedDayInfo || calendarDays[14];
+		setFormTime(`${dayInfo.dayOfWeekFull}, ${dayInfo.dayNumber} ${dayInfo.monthName} 17:00`);
 		setFormLocation(CLUB_LOCATIONS[1].address);
 		setFormMaxCapacity("15");
-		setFormTeamId(teams[0]?.id?.toString() || "");
+		setFormTeamId(defaultTeamId);
 		setFormOpponent("");
 		setFormDate(`${selectedDateKey} 17:00`);
 		setFormResult("");
@@ -891,8 +901,8 @@ export default function TrainingScreen() {
 					showsHorizontalScrollIndicator={false}
 					contentContainerStyle={styles.calendarListContent}
 					getItemLayout={(_, index) => ({
-						length: DAY_ITEM_WIDTH + 8,
-						offset: (DAY_ITEM_WIDTH + 8) * index,
+						length: DAY_TOTAL_ITEM_WIDTH,
+						offset: DAY_TOTAL_ITEM_WIDTH * index,
 						index,
 					})}
 					renderItem={({ item, index }) => {
@@ -952,33 +962,8 @@ export default function TrainingScreen() {
 				/>
 			</View>
 
-			{/* DUŻY, CZYTELNY PRZEŁĄCZNIK WIDOKÓW (LARGE SEGMENTED SELECTOR / DROPDOWN) */}
+			{/* SZYBKI PRZEŁĄCZNIK WIDOKÓW (DZIEŃ / TRENINGI / MECZE) */}
 			<View style={styles.viewModeContainer}>
-				<TouchableOpacity
-					activeOpacity={0.85}
-					style={styles.dropdownHeaderBtn}
-					onPress={() => setViewPickerModalVisible(true)}
-				>
-					<View style={styles.dropdownHeaderLeft}>
-						<MaterialCommunityIcons
-							name={currentViewOption.icon as any}
-							size={20}
-							color={COLORS.primary}
-							style={{ marginRight: 8 }}
-						/>
-						<View>
-							<Text style={styles.dropdownHeaderLabel}>Widok:</Text>
-							<Text style={styles.dropdownHeaderValue}>{currentViewOption.label}</Text>
-						</View>
-					</View>
-
-					<View style={styles.dropdownHeaderRight}>
-						<Text style={styles.dropdownChangeText}>Zmień</Text>
-						<MaterialIcons name="keyboard-arrow-down" size={24} color={COLORS.primary} />
-					</View>
-				</TouchableOpacity>
-
-				{/* 3 Duże Kafelki Szybkiego Wyboru */}
 				<View style={styles.quickTabsRow}>
 					{VIEW_OPTIONS.map((tab) => {
 						const isActive = activeTab === tab.id;
@@ -1172,65 +1157,45 @@ export default function TrainingScreen() {
 				</ScrollView>
 			</Animated.View>
 
-			{/* Modal Wyboru Widoku (Dropdown Modal) */}
+			{/* Dialog Dodawania/Edycji Wydarzenia (Responsywne Drop Menu) */}
 			<Portal>
 				<Dialog
-					visible={viewPickerModalVisible}
-					onDismiss={() => setViewPickerModalVisible(false)}
-					style={styles.dialog}
+					visible={dialogVisible}
+					onDismiss={() => setDialogVisible(false)}
+					style={styles.responsiveDialog}
 				>
-					<Dialog.Title style={styles.dialogTitle}>Wybierz widok terminarza</Dialog.Title>
-					<Dialog.ScrollArea style={styles.dialogScrollArea}>
-						<ScrollView contentContainerStyle={{ paddingVertical: 10 }}>
-							{VIEW_OPTIONS.map((opt) => {
-								const isSelected = activeTab === opt.id;
-								return (
-									<TouchableOpacity
-										key={opt.id}
-										activeOpacity={0.8}
-										onPress={() => {
-											handleTabChange(opt.id);
-											setViewPickerModalVisible(false);
-										}}
-										style={[styles.viewOptionItem, isSelected && styles.viewOptionItemActive]}
-									>
-										<View style={[styles.viewOptionIconBox, isSelected && styles.viewOptionIconBoxActive]}>
-											<MaterialCommunityIcons
-												name={opt.icon as any}
-												size={24}
-												color={isSelected ? COLORS.white : COLORS.primary}
-											/>
-										</View>
-										<View style={{ flex: 1 }}>
-											<Text style={[styles.viewOptionLabel, isSelected && styles.viewOptionLabelActive]}>
-												{opt.label}
-											</Text>
-											<Text style={styles.viewOptionSublabel}>{opt.sublabel}</Text>
-										</View>
-										{isSelected && (
-											<MaterialIcons name="check-circle" size={22} color={COLORS.primary} />
-										)}
-									</TouchableOpacity>
-								);
-							})}
-						</ScrollView>
-					</Dialog.ScrollArea>
-					<Dialog.Actions>
-						<Button onPress={() => setViewPickerModalVisible(false)}>Zamknij</Button>
-					</Dialog.Actions>
-				</Dialog>
-			</Portal>
-
-			{/* Dialog Dodawania/Edycji Wydarzenia */}
-			<Portal>
-				<Dialog visible={dialogVisible} onDismiss={() => setDialogVisible(false)} style={styles.dialog}>
-					<Dialog.Title style={styles.dialogTitle}>
-						{editEventId !== null ? "Edytuj wydarzenie" : "Dodaj wydarzenie"}
-					</Dialog.Title>
+					<View style={styles.dialogHeaderRow}>
+						<View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
+							<View style={styles.dialogHeaderIcon}>
+								<MaterialCommunityIcons
+									name={eventType === "training" ? "soccer" : "trophy-outline"}
+									size={22}
+									color={COLORS.primary}
+								/>
+							</View>
+							<Text style={styles.dialogTitleText}>
+								{editEventId !== null
+									? (eventType === "training" ? "Edycja treningu" : "Edycja meczu")
+									: "Nowe wydarzenie"}
+							</Text>
+						</View>
+						<TouchableOpacity
+							onPress={() => setDialogVisible(false)}
+							hitSlop={8}
+							style={styles.dialogCloseBtn}
+						>
+							<MaterialIcons name="close" size={20} color={COLORS.textLight} />
+						</TouchableOpacity>
+					</View>
 
 					<Dialog.ScrollArea style={styles.dialogScrollArea}>
-						<ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingVertical: 10 }}>
-							{formError ? <Text style={styles.errorText}>{formError}</Text> : null}
+						<ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingVertical: 12, gap: 14 }}>
+							{formError ? (
+								<View style={styles.errorBanner}>
+									<MaterialIcons name="error-outline" size={20} color="#dc2626" />
+									<Text style={styles.errorBannerText}>{formError}</Text>
+								</View>
+							) : null}
 
 							{/* Przełącznik Trening / Mecz */}
 							{editEventId === null && (
@@ -1263,22 +1228,137 @@ export default function TrainingScreen() {
 											style={{ marginRight: 6 }}
 										/>
 										<Text style={[styles.formTypeBtnText, eventType === "match" && styles.formTypeBtnTextActive]}>
-											Mecz
+											Mecz ligowy / sparing
 										</Text>
 									</TouchableOpacity>
 								</View>
 							)}
 
-							{/* Wybór Zespołu */}
-							<TouchableOpacity style={styles.selectButton} onPress={() => setFormTeamModalVisible(true)}>
-								<Text style={styles.selectButtonLabel}>Drużyna / Rocznik:</Text>
-								<Text style={styles.selectButtonValue}>
-									{formTeamId ? getTeamName(parseInt(formTeamId)) : "Wybierz zespół..."}
-								</Text>
-							</TouchableOpacity>
+							{/* 1. DROP MENU: Wybór Drużyny */}
+							<View style={styles.dropdownContainer}>
+								<Text style={styles.fieldSectionLabel}>Drużyna / Grupa:</Text>
+								<TouchableOpacity
+									activeOpacity={0.85}
+									onPress={() => {
+										setTeamDropdownOpen(!teamDropdownOpen);
+										setTemplateDropdownOpen(false);
+										setLocationDropdownOpen(false);
+										setHourDropdownOpen(false);
+									}}
+									style={[styles.dropdownHeader, teamDropdownOpen && styles.dropdownHeaderActive]}
+								>
+									<MaterialCommunityIcons name="shield-outline" size={20} color={COLORS.primary} />
+									<View style={{ flex: 1 }}>
+										<Text style={styles.dropdownSelectedText}>
+											{formTeamId ? getTeamName(parseInt(formTeamId)) : "Wybierz zespół..."}
+										</Text>
+									</View>
+									<MaterialIcons
+										name={teamDropdownOpen ? "keyboard-arrow-up" : "keyboard-arrow-down"}
+										size={22}
+										color={COLORS.textLight}
+									/>
+								</TouchableOpacity>
+
+								{teamDropdownOpen && (
+									<View style={styles.dropdownBody}>
+										{teams.map((t) => {
+											const isSelected = formTeamId === t.id.toString();
+											return (
+												<TouchableOpacity
+													key={t.id}
+													activeOpacity={0.8}
+													onPress={() => {
+														setFormTeamId(t.id.toString());
+														setTeamDropdownOpen(false);
+													}}
+													style={[styles.dropdownOption, isSelected && styles.dropdownOptionActive]}
+												>
+													<MaterialCommunityIcons
+														name="shield-outline"
+														size={18}
+														color={isSelected ? COLORS.primary : COLORS.textLight}
+													/>
+													<Text style={[styles.dropdownOptionTitle, isSelected && styles.dropdownOptionTitleActive, { flex: 1 }]}>
+														{t.name}
+													</Text>
+													{isSelected && (
+														<MaterialIcons name="check" size={18} color={COLORS.primary} />
+													)}
+												</TouchableOpacity>
+											);
+										})}
+									</View>
+								)}
+							</View>
 
 							{eventType === "training" ? (
 								<>
+									{/* 2. DROP MENU: Szablon nazwy treningu */}
+									<View style={styles.dropdownContainer}>
+										<Text style={styles.fieldSectionLabel}>Szablon nazwy treningu:</Text>
+										<TouchableOpacity
+											activeOpacity={0.85}
+											onPress={() => {
+												setTemplateDropdownOpen(!templateDropdownOpen);
+												setTeamDropdownOpen(false);
+												setLocationDropdownOpen(false);
+												setHourDropdownOpen(false);
+											}}
+											style={[styles.dropdownHeader, templateDropdownOpen && styles.dropdownHeaderActive]}
+										>
+											<MaterialCommunityIcons name="soccer" size={20} color={COLORS.primary} />
+											<View style={{ flex: 1 }}>
+												<Text style={styles.dropdownSelectedText} numberOfLines={1}>
+													{formTitle || "Wybierz szablon lub wpisz poniżej..."}
+												</Text>
+											</View>
+											<MaterialIcons
+												name={templateDropdownOpen ? "keyboard-arrow-up" : "keyboard-arrow-down"}
+												size={22}
+												color={COLORS.textLight}
+											/>
+										</TouchableOpacity>
+
+										{templateDropdownOpen && (
+											<View style={styles.dropdownBody}>
+												{[
+													"Trening techniczny",
+													"Trening taktyczny",
+													"Trening motoryczny",
+													"Gry wewnętrzne",
+													"Trening bramkarski",
+													"Zajęcia ogólnorozwojowe",
+												].map((tpl) => {
+													const isSelected = formTitle === tpl;
+													return (
+														<TouchableOpacity
+															key={tpl}
+															activeOpacity={0.8}
+															onPress={() => {
+																setFormTitle(tpl);
+																setTemplateDropdownOpen(false);
+															}}
+															style={[styles.dropdownOption, isSelected && styles.dropdownOptionActive]}
+														>
+															<MaterialCommunityIcons
+																name="whistle-outline"
+																size={18}
+																color={isSelected ? COLORS.primary : COLORS.textLight}
+															/>
+															<Text style={[styles.dropdownOptionTitle, isSelected && styles.dropdownOptionTitleActive, { flex: 1 }]}>
+																{tpl}
+															</Text>
+															{isSelected && (
+																<MaterialIcons name="check" size={18} color={COLORS.primary} />
+															)}
+														</TouchableOpacity>
+													);
+												})}
+											</View>
+										)}
+									</View>
+
 									<TextInput
 										label="Nazwa treningu"
 										value={formTitle}
@@ -1288,11 +1368,81 @@ export default function TrainingScreen() {
 										style={styles.input}
 										outlineColor="#e2e8f0"
 										activeOutlineColor={COLORS.primary}
+										left={<TextInput.Icon icon="soccer" />}
 									/>
 
-									<TouchableOpacity style={styles.selectButton} onPress={() => setTrainingDatePickerVisible(true)}>
-										<Text style={styles.selectButtonLabel}>Termin treningu:</Text>
-										<Text style={styles.selectButtonValue}>{formTime || "Wybierz datę i godzinę..."}</Text>
+									{/* 3. DROP MENU: Godzina treningu */}
+									<View style={styles.dropdownContainer}>
+										<Text style={styles.fieldSectionLabel}>Godzina treningu:</Text>
+										<TouchableOpacity
+											activeOpacity={0.85}
+											onPress={() => {
+												setHourDropdownOpen(!hourDropdownOpen);
+												setTeamDropdownOpen(false);
+												setTemplateDropdownOpen(false);
+												setLocationDropdownOpen(false);
+											}}
+											style={[styles.dropdownHeader, hourDropdownOpen && styles.dropdownHeaderActive]}
+										>
+											<MaterialCommunityIcons name="clock-outline" size={20} color={COLORS.primary} />
+											<View style={{ flex: 1 }}>
+												<Text style={styles.dropdownSelectedText}>
+													{formTime ? formTime.split(" ").slice(-1)[0] : "17:00"}
+												</Text>
+											</View>
+											<MaterialIcons
+												name={hourDropdownOpen ? "keyboard-arrow-up" : "keyboard-arrow-down"}
+												size={22}
+												color={COLORS.textLight}
+											/>
+										</TouchableOpacity>
+
+										{hourDropdownOpen && (
+											<View style={styles.dropdownBody}>
+												{["15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30"].map((hour) => {
+													const isSelected = formTime.includes(hour);
+													return (
+														<TouchableOpacity
+															key={hour}
+															activeOpacity={0.8}
+															onPress={() => {
+																const base = formTime
+																	? formTime.replace(/\s\d{1,2}:\d{2}$/, "")
+																	: `${selectedDayInfo.dayOfWeekFull}, ${selectedDayInfo.dayNumber} ${selectedDayInfo.monthName}`;
+																setFormTime(`${base} ${hour}`);
+																setHourDropdownOpen(false);
+															}}
+															style={[styles.dropdownOption, isSelected && styles.dropdownOptionActive]}
+														>
+															<MaterialCommunityIcons
+																name="clock-time-four-outline"
+																size={18}
+																color={isSelected ? COLORS.primary : COLORS.textLight}
+															/>
+															<Text style={[styles.dropdownOptionTitle, isSelected && styles.dropdownOptionTitleActive, { flex: 1 }]}>
+																{hour}
+															</Text>
+															{isSelected && (
+																<MaterialIcons name="check" size={18} color={COLORS.primary} />
+															)}
+														</TouchableOpacity>
+													);
+												})}
+											</View>
+										)}
+									</View>
+
+									{/* Pełny wybór terminu */}
+									<TouchableOpacity
+										activeOpacity={0.85}
+										style={styles.dropdownHeader}
+										onPress={() => setTrainingDatePickerVisible(true)}
+									>
+										<MaterialIcons name="event" size={20} color={COLORS.primary} />
+										<View style={{ flex: 1 }}>
+											<Text style={styles.dropdownSelectedText}>{formTime || "Wybierz datę i godzinę..."}</Text>
+										</View>
+										<MaterialIcons name="edit-calendar" size={20} color={COLORS.textLight} />
 									</TouchableOpacity>
 
 									<TextInput
@@ -1303,6 +1453,7 @@ export default function TrainingScreen() {
 										style={styles.input}
 										outlineColor="#e2e8f0"
 										activeOutlineColor={COLORS.primary}
+										left={<TextInput.Icon icon="account-tie" />}
 									/>
 								</>
 							) : (
@@ -1316,11 +1467,19 @@ export default function TrainingScreen() {
 										style={styles.input}
 										outlineColor="#e2e8f0"
 										activeOutlineColor={COLORS.primary}
+										left={<TextInput.Icon icon="shield-sword-outline" />}
 									/>
 
-									<TouchableOpacity style={styles.selectButton} onPress={() => setMatchDatePickerVisible(true)}>
-										<Text style={styles.selectButtonLabel}>Data i godzina meczu:</Text>
-										<Text style={styles.selectButtonValue}>{formDate || "Wybierz termin..."}</Text>
+									<TouchableOpacity
+										activeOpacity={0.85}
+										style={styles.dropdownHeader}
+										onPress={() => setMatchDatePickerVisible(true)}
+									>
+										<MaterialIcons name="event" size={20} color={COLORS.primary} />
+										<View style={{ flex: 1 }}>
+											<Text style={styles.dropdownSelectedText}>{formDate || "Wybierz termin meczu..."}</Text>
+										</View>
+										<MaterialIcons name="edit-calendar" size={20} color={COLORS.textLight} />
 									</TouchableOpacity>
 
 									{editEventId !== null && (
@@ -1338,84 +1497,106 @@ export default function TrainingScreen() {
 								</>
 							)}
 
-							{/* Lokalizacja */}
-							<TouchableOpacity style={styles.selectButton} onPress={() => setLocationModalVisible(true)}>
-								<Text style={styles.selectButtonLabel}>Miejsce:</Text>
-								<Text style={styles.selectButtonValue}>{formLocation || "Wybierz obiekt..."}</Text>
-							</TouchableOpacity>
-						</ScrollView>
-					</Dialog.ScrollArea>
-
-					<Dialog.Actions style={styles.dialogActions}>
-						<Button onPress={() => setDialogVisible(false)} textColor={COLORS.textLight}>
-							Anuluj
-						</Button>
-						<Button
-							mode="contained"
-							onPress={handleAddOrEditEvent}
-							loading={actionLoading}
-							disabled={actionLoading}
-							buttonColor={COLORS.primary}
-							textColor={COLORS.white}
-						>
-							{editEventId !== null ? "Zapisz" : "Dodaj"}
-						</Button>
-					</Dialog.Actions>
-				</Dialog>
-			</Portal>
-
-			{/* Modal wyboru zespołu */}
-			<Portal>
-				<Dialog visible={formTeamModalVisible} onDismiss={() => setFormTeamModalVisible(false)} style={styles.dialog}>
-					<Dialog.Title style={styles.dialogTitle}>Wybierz zespół</Dialog.Title>
-					<Dialog.ScrollArea style={styles.dialogScrollArea}>
-						<ScrollView contentContainerStyle={{ paddingVertical: 10 }}>
-							<RadioButton.Group
-								onValueChange={(val) => {
-									setFormTeamId(val);
-									setFormTeamModalVisible(false);
-								}}
-								value={formTeamId}
-							>
-								{teams.map((t) => (
-									<RadioButton.Item key={t.id} label={t.name} value={t.id.toString()} color={COLORS.primary} />
-								))}
-							</RadioButton.Group>
-						</ScrollView>
-					</Dialog.ScrollArea>
-					<Dialog.Actions>
-						<Button onPress={() => setFormTeamModalVisible(false)}>Zamknij</Button>
-					</Dialog.Actions>
-				</Dialog>
-			</Portal>
-
-			{/* Modal wyboru lokalizacji */}
-			<Portal>
-				<Dialog visible={locationModalVisible} onDismiss={() => setLocationModalVisible(false)} style={styles.dialog}>
-					<Dialog.Title style={styles.dialogTitle}>Wybierz obiekt</Dialog.Title>
-					<Dialog.ScrollArea style={styles.dialogScrollArea}>
-						<ScrollView contentContainerStyle={{ paddingVertical: 10 }}>
-							{CLUB_LOCATIONS.map((loc) => (
+							{/* 4. DROP MENU: Miejsce / Obiekt */}
+							<View style={styles.dropdownContainer}>
+								<Text style={styles.fieldSectionLabel}>Miejsce / Obiekt:</Text>
 								<TouchableOpacity
-									key={loc.id}
-									style={styles.locationItem}
+									activeOpacity={0.85}
 									onPress={() => {
-										setFormLocation(loc.address || "Mecz wyjazdowy");
-										setLocationModalVisible(false);
+										setLocationDropdownOpen(!locationDropdownOpen);
+										setTeamDropdownOpen(false);
+										setTemplateDropdownOpen(false);
+										setHourDropdownOpen(false);
 									}}
+									style={[styles.dropdownHeader, locationDropdownOpen && styles.dropdownHeaderActive]}
 								>
-									<MaterialCommunityIcons name={loc.icon as any} size={22} color={COLORS.primary} style={{ marginRight: 10 }} />
+									<MaterialCommunityIcons name="stadium" size={20} color={COLORS.primary} />
 									<View style={{ flex: 1 }}>
-										<Text style={styles.locationItemName}>{loc.name}</Text>
-										{loc.address ? <Text style={styles.locationItemAddress}>{loc.address}</Text> : null}
+										<Text style={styles.dropdownSelectedText} numberOfLines={1}>
+											{CLUB_LOCATIONS.find((l) => l.address === formLocation || (!l.address && formLocation === "Mecz wyjazdowy"))?.name || formLocation || "Wybierz obiekt..."}
+										</Text>
 									</View>
+									<MaterialIcons
+										name={locationDropdownOpen ? "keyboard-arrow-up" : "keyboard-arrow-down"}
+										size={22}
+										color={COLORS.textLight}
+									/>
 								</TouchableOpacity>
-							))}
+
+								{locationDropdownOpen && (
+									<View style={styles.dropdownBody}>
+										{CLUB_LOCATIONS.map((loc) => {
+											const isSelected = formLocation === (loc.address || "Mecz wyjazdowy");
+											return (
+												<TouchableOpacity
+													key={loc.id}
+													activeOpacity={0.8}
+													onPress={() => {
+														setFormLocation(loc.address || "Mecz wyjazdowy");
+														setLocationDropdownOpen(false);
+													}}
+													style={[styles.dropdownOption, isSelected && styles.dropdownOptionActive]}
+												>
+													<MaterialCommunityIcons
+														name={loc.icon as any}
+														size={18}
+														color={isSelected ? COLORS.primary : COLORS.textLight}
+													/>
+													<View style={{ flex: 1 }}>
+														<Text style={[styles.dropdownOptionTitle, isSelected && styles.dropdownOptionTitleActive]}>
+															{loc.name}
+														</Text>
+														{loc.address ? (
+															<Text style={styles.dropdownOptionSubtitle}>{loc.address}</Text>
+														) : null}
+													</View>
+													{isSelected && (
+														<MaterialIcons name="check" size={18} color={COLORS.primary} />
+													)}
+												</TouchableOpacity>
+											);
+										})}
+									</View>
+								)}
+							</View>
 						</ScrollView>
 					</Dialog.ScrollArea>
-					<Dialog.Actions>
-						<Button onPress={() => setLocationModalVisible(false)}>Zamknij</Button>
-					</Dialog.Actions>
+
+					<View style={styles.modalActionRow}>
+						<TouchableOpacity
+							activeOpacity={0.75}
+							onPress={() => setDialogVisible(false)}
+							style={styles.modalCancelBtn}
+						>
+							<Text style={styles.modalCancelBtnText}>Anuluj</Text>
+						</TouchableOpacity>
+
+						<TouchableOpacity
+							activeOpacity={0.85}
+							onPress={handleAddOrEditEvent}
+							disabled={actionLoading}
+							style={styles.modalSubmitBtn}
+						>
+							{actionLoading ? (
+								<ActivityIndicator size="small" color={COLORS.white} />
+							) : (
+								<View style={styles.modalSubmitContent}>
+									<MaterialCommunityIcons
+										name={editEventId !== null ? "check-circle" : (eventType === "training" ? "soccer" : "trophy-outline")}
+										size={20}
+										color={COLORS.white}
+									/>
+									<Text style={styles.modalSubmitBtnText}>
+										{editEventId !== null
+											? "Zapisz zmiany"
+											: eventType === "training"
+											? "Dodaj do terminarza"
+											: "Zapisz mecz"}
+									</Text>
+								</View>
+							)}
+						</TouchableOpacity>
+					</View>
 				</Dialog>
 			</Portal>
 
@@ -1528,8 +1709,8 @@ const styles = StyleSheet.create({
 		color: COLORS.primary,
 	},
 	calendarListContent: {
-		paddingHorizontal: 12,
-		gap: 8,
+		paddingHorizontal: CALENDAR_PADDING,
+		gap: DAY_GAP,
 	},
 	dayItem: {
 		width: DAY_ITEM_WIDTH,
@@ -1540,7 +1721,6 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		borderWidth: 1,
 		borderColor: "#e2e8f0",
-		marginRight: 8,
 	},
 	dayItemActive: {
 		backgroundColor: COLORS.primary,
@@ -1608,42 +1788,6 @@ const styles = StyleSheet.create({
 		paddingVertical: 10,
 		borderBottomWidth: 1,
 		borderBottomColor: "#e2e8f0",
-	},
-	dropdownHeaderBtn: {
-		flexDirection: "row",
-		justifyContent: "space-between",
-		alignItems: "center",
-		backgroundColor: "#f8fafc",
-		borderRadius: 12,
-		paddingHorizontal: 14,
-		paddingVertical: 10,
-		borderWidth: 1,
-		borderColor: "#e2e8f0",
-		marginBottom: 10,
-	},
-	dropdownHeaderLeft: {
-		flexDirection: "row",
-		alignItems: "center",
-	},
-	dropdownHeaderLabel: {
-		fontFamily: FONTS.regular,
-		fontSize: 11,
-		color: COLORS.textLight,
-	},
-	dropdownHeaderValue: {
-		fontFamily: FONTS.bold,
-		fontSize: 14,
-		color: COLORS.textDark,
-	},
-	dropdownHeaderRight: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: 2,
-	},
-	dropdownChangeText: {
-		fontFamily: FONTS.semiBold,
-		fontSize: 13,
-		color: COLORS.primary,
 	},
 	quickTabsRow: {
 		flexDirection: "row",
@@ -1934,46 +2078,6 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 16,
 		paddingBottom: 10,
 	},
-	viewOptionItem: {
-		flexDirection: "row",
-		alignItems: "center",
-		padding: 12,
-		borderRadius: 12,
-		borderWidth: 1,
-		borderColor: "#e2e8f0",
-		marginBottom: 10,
-		backgroundColor: "#f8fafc",
-	},
-	viewOptionItemActive: {
-		borderColor: COLORS.primary,
-		backgroundColor: "#eff6ff",
-	},
-	viewOptionIconBox: {
-		width: 44,
-		height: 44,
-		borderRadius: 10,
-		backgroundColor: "#eff6ff",
-		justifyContent: "center",
-		alignItems: "center",
-		marginRight: 12,
-	},
-	viewOptionIconBoxActive: {
-		backgroundColor: COLORS.primary,
-	},
-	viewOptionLabel: {
-		fontFamily: FONTS.bold,
-		fontSize: 14.5,
-		color: COLORS.textDark,
-	},
-	viewOptionLabelActive: {
-		color: COLORS.primary,
-	},
-	viewOptionSublabel: {
-		fontFamily: FONTS.regular,
-		fontSize: 12,
-		color: COLORS.textLight,
-		marginTop: 2,
-	},
 	formTypeSwitchWrapper: {
 		flexDirection: "row",
 		backgroundColor: "#f1f5f9",
@@ -2000,6 +2104,274 @@ const styles = StyleSheet.create({
 	formTypeBtnTextActive: {
 		color: COLORS.white,
 	},
+	fieldSectionLabel: {
+		fontFamily: FONTS.semiBold,
+		fontSize: 12.5,
+		color: COLORS.textDark,
+		marginBottom: 6,
+	},
+	quickTeamChip: {
+		flexDirection: "row",
+		alignItems: "center",
+		paddingHorizontal: 12,
+		paddingVertical: 7,
+		borderRadius: 20,
+		borderWidth: 1,
+		borderColor: "#cbd5e1",
+		backgroundColor: "#f8fafc",
+		gap: 6,
+	},
+	quickTeamChipActive: {
+		borderColor: COLORS.primary,
+		backgroundColor: COLORS.primary,
+	},
+	quickTeamChipText: {
+		fontFamily: FONTS.semiBold,
+		fontSize: 12,
+		color: COLORS.textDark,
+	},
+	quickTeamChipTextActive: {
+		color: COLORS.white,
+	},
+	quickTimeChip: {
+		paddingHorizontal: 12,
+		paddingVertical: 7,
+		borderRadius: 20,
+		borderWidth: 1,
+		borderColor: "#cbd5e1",
+		backgroundColor: "#f1f5f9",
+	},
+	quickTimeChipActive: {
+		borderColor: COLORS.primary,
+		backgroundColor: COLORS.primary,
+	},
+	quickTimeChipText: {
+		fontFamily: FONTS.semiBold,
+		fontSize: 12,
+		color: COLORS.textDark,
+	},
+	quickTimeChipTextActive: {
+		color: COLORS.white,
+	},
+	quickPurposeChip: {
+		paddingHorizontal: 10,
+		paddingVertical: 6,
+		borderRadius: 16,
+		borderWidth: 1,
+		borderColor: "#e2e8f0",
+		backgroundColor: "#ffffff",
+	},
+	quickPurposeChipActive: {
+		borderColor: COLORS.primary,
+		backgroundColor: "#eff6ff",
+	},
+	quickPurposeChipText: {
+		fontFamily: FONTS.medium,
+		fontSize: 11.5,
+		color: COLORS.textDark,
+	},
+	quickPurposeChipTextActive: {
+		fontFamily: FONTS.bold,
+		color: COLORS.primary,
+	},
+	quickLocationItem: {
+		flexDirection: "row",
+		alignItems: "center",
+		padding: 10,
+		borderRadius: 12,
+		borderWidth: 1,
+		borderColor: "#e2e8f0",
+		backgroundColor: "#f8fafc",
+		gap: 10,
+	},
+	quickLocationItemActive: {
+		borderColor: COLORS.primary,
+		backgroundColor: COLORS.primary,
+	},
+	quickLocationName: {
+		fontFamily: FONTS.bold,
+		fontSize: 12.5,
+		color: COLORS.textDark,
+	},
+	quickLocationNameActive: {
+		color: COLORS.white,
+	},
+	quickLocationAddress: {
+		fontFamily: FONTS.regular,
+		fontSize: 10.5,
+		color: COLORS.textLight,
+		marginTop: 1,
+	},
+	quickLocationAddressActive: {
+		color: "rgba(255,255,255,0.85)",
+	},
+	responsiveDialog: {
+		backgroundColor: COLORS.white,
+		borderRadius: 22,
+		maxHeight: "88%",
+		marginHorizontal: 16,
+		elevation: 8,
+		shadowColor: "#000",
+		shadowOffset: { width: 0, height: 6 },
+		shadowOpacity: 0.18,
+		shadowRadius: 14,
+	},
+	dialogHeaderRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "space-between",
+		paddingHorizontal: 20,
+		paddingTop: 18,
+		paddingBottom: 8,
+	},
+	dialogHeaderIcon: {
+		width: 36,
+		height: 36,
+		borderRadius: 10,
+		backgroundColor: "#eff6ff",
+		justifyContent: "center",
+		alignItems: "center",
+	},
+	dialogTitleText: {
+		fontFamily: FONTS.bold,
+		fontSize: 17,
+		color: COLORS.textDark,
+	},
+	dialogCloseBtn: {
+		padding: 6,
+		borderRadius: 20,
+		backgroundColor: "#f1f5f9",
+	},
+	errorBanner: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 8,
+		padding: 10,
+		borderRadius: 10,
+		backgroundColor: "#fee2e2",
+		borderWidth: 1,
+		borderColor: "#fca5a5",
+	},
+	errorBannerText: {
+		fontFamily: FONTS.medium,
+		fontSize: 12,
+		color: "#b91c1c",
+		flex: 1,
+	},
+	dropdownContainer: {
+		marginBottom: 4,
+	},
+	dropdownHeader: {
+		flexDirection: "row",
+		alignItems: "center",
+		paddingHorizontal: 14,
+		paddingVertical: 12,
+		borderRadius: 12,
+		borderWidth: 1.5,
+		borderColor: "#e2e8f0",
+		backgroundColor: "#f8fafc",
+		gap: 10,
+	},
+	dropdownHeaderActive: {
+		borderColor: COLORS.primary,
+		backgroundColor: "#ffffff",
+	},
+	dropdownSelectedText: {
+		fontFamily: FONTS.semiBold,
+		fontSize: 13.5,
+		color: COLORS.textDark,
+	},
+	dropdownBody: {
+		marginTop: 6,
+		borderRadius: 14,
+		borderWidth: 1,
+		borderColor: "#e2e8f0",
+		backgroundColor: "#ffffff",
+		padding: 6,
+		gap: 4,
+		elevation: 4,
+		shadowColor: "#000",
+		shadowOffset: { width: 0, height: 4 },
+		shadowOpacity: 0.1,
+		shadowRadius: 8,
+	},
+	dropdownOption: {
+		flexDirection: "row",
+		alignItems: "center",
+		paddingHorizontal: 12,
+		paddingVertical: 10,
+		borderRadius: 10,
+		gap: 10,
+	},
+	dropdownOptionActive: {
+		backgroundColor: "#eff6ff",
+	},
+	dropdownOptionTitle: {
+		fontFamily: FONTS.semiBold,
+		fontSize: 13,
+		color: COLORS.textDark,
+	},
+	dropdownOptionTitleActive: {
+		color: COLORS.primary,
+		fontFamily: FONTS.bold,
+	},
+	dropdownOptionSubtitle: {
+		fontFamily: FONTS.regular,
+		fontSize: 11,
+		color: COLORS.textLight,
+		marginTop: 2,
+	},
+	modalActionRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 12,
+		paddingHorizontal: 18,
+		paddingVertical: 14,
+		borderTopWidth: 1,
+		borderTopColor: "#f1f5f9",
+		backgroundColor: "#ffffff",
+		borderBottomLeftRadius: 22,
+		borderBottomRightRadius: 22,
+	},
+	modalCancelBtn: {
+		flex: 1,
+		height: 48,
+		borderRadius: 14,
+		backgroundColor: "#f1f5f9",
+		borderWidth: 1,
+		borderColor: "#e2e8f0",
+		justifyContent: "center",
+		alignItems: "center",
+	},
+	modalCancelBtnText: {
+		fontFamily: FONTS.semiBold,
+		fontSize: 14,
+		color: "#64748b",
+	},
+	modalSubmitBtn: {
+		flex: 2,
+		height: 48,
+		borderRadius: 14,
+		backgroundColor: COLORS.primary,
+		justifyContent: "center",
+		alignItems: "center",
+		elevation: 3,
+		shadowColor: COLORS.primary,
+		shadowOffset: { width: 0, height: 3 },
+		shadowOpacity: 0.25,
+		shadowRadius: 6,
+	},
+	modalSubmitContent: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 8,
+	},
+	modalSubmitBtnText: {
+		fontFamily: FONTS.bold,
+		fontSize: 14,
+		color: COLORS.white,
+		letterSpacing: -0.1,
+	},
 	selectButton: {
 		backgroundColor: "#f8fafc",
 		borderWidth: 1,
@@ -2021,7 +2393,6 @@ const styles = StyleSheet.create({
 	},
 	input: {
 		backgroundColor: COLORS.white,
-		marginBottom: 10,
 		fontSize: 13.5,
 		fontFamily: FONTS.regular,
 	},
@@ -2030,23 +2401,5 @@ const styles = StyleSheet.create({
 		fontSize: 12,
 		color: "#dc2626",
 		marginBottom: 8,
-	},
-	locationItem: {
-		flexDirection: "row",
-		alignItems: "center",
-		paddingVertical: 12,
-		borderBottomWidth: 1,
-		borderBottomColor: "#f1f5f9",
-	},
-	locationItemName: {
-		fontFamily: FONTS.semiBold,
-		fontSize: 13.5,
-		color: COLORS.textDark,
-	},
-	locationItemAddress: {
-		fontFamily: FONTS.regular,
-		fontSize: 11.5,
-		color: COLORS.textLight,
-		marginTop: 1,
 	},
 });
