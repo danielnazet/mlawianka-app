@@ -1,9 +1,10 @@
-import React, { ComponentProps, useEffect, useState } from "react";
+import React, { ComponentProps, useEffect, useRef, useState } from "react";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import {
+  Animated,
   LayoutChangeEvent,
   Platform,
   Pressable,
@@ -11,13 +12,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
-} from "react-native-reanimated";
 
 import { COLORS } from "../css/colors";
 
@@ -57,19 +51,6 @@ const TAB_CONFIG: Record<string, TabDefinition> = {
   },
 };
 
-const INDICATOR_SPRING = {
-  damping: 20,
-  stiffness: 220,
-  mass: 0.75,
-  overshootClamping: false,
-};
-
-const ICON_SPRING = {
-  damping: 14,
-  stiffness: 260,
-  mass: 0.65,
-};
-
 type TabButtonProps = {
   label: string;
   activeIcon: IconName;
@@ -89,30 +70,36 @@ function TabButton({
   onPress,
   onLongPress,
 }: TabButtonProps) {
-  const iconStyle = useAnimatedStyle(() => ({
-    opacity: withTiming(focused ? 1 : 0.72, {
-      duration: 150,
-    }),
-    transform: [
-      {
-        translateY: withSpring(focused ? -1 : 0, ICON_SPRING),
-      },
-      {
-        scale: withSpring(focused ? 1.1 : 1, ICON_SPRING),
-      },
-    ],
-  }));
+  const anim = useRef(new Animated.Value(focused ? 1 : 0)).current;
 
-  const labelStyle = useAnimatedStyle(() => ({
-    opacity: withTiming(focused ? 1 : 0.7, {
-      duration: 150,
-    }),
-    transform: [
-      {
-        translateY: withSpring(focused ? -1 : 0, ICON_SPRING),
-      },
-    ],
-  }));
+  useEffect(() => {
+    Animated.spring(anim, {
+      toValue: focused ? 1 : 0,
+      useNativeDriver: true,
+      friction: 7,
+      tension: 120,
+    }).start();
+  }, [focused]);
+
+  const iconScale = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.1],
+  });
+
+  const iconTranslateY = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -1],
+  });
+
+  const iconOpacity = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.72, 1],
+  });
+
+  const labelOpacity = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.7, 1],
+  });
 
   return (
     <Pressable
@@ -124,7 +111,15 @@ function TabButton({
       hitSlop={5}
       style={styles.tabButton}
     >
-      <Animated.View style={[styles.iconWrapper, iconStyle]}>
+      <Animated.View
+        style={[
+          styles.iconWrapper,
+          {
+            opacity: iconOpacity,
+            transform: [{ translateY: iconTranslateY }, { scale: iconScale }],
+          },
+        ]}
+      >
         <Ionicons
           name={focused ? activeIcon : inactiveIcon}
           size={23}
@@ -146,7 +141,10 @@ function TabButton({
         style={[
           styles.label,
           focused && styles.focusedLabel,
-          labelStyle,
+          {
+            opacity: labelOpacity,
+            transform: [{ translateY: iconTranslateY }],
+          },
         ]}
       >
         {label}
@@ -163,13 +161,12 @@ export function ClubTabBar({
   const insets = useSafeAreaInsets();
 
   const [barWidth, setBarWidth] = useState(0);
-  const indicatorX = useSharedValue(0);
+  const indicatorX = useRef(new Animated.Value(0)).current;
 
   const visibleRoutes = state.routes.filter((route) => {
     const config = TAB_CONFIG[route.name];
     if (!config) return false;
 
-    // Sprawdzamy czy zakładka ma być ukryta (np. role-based dynamic href: null)
     const options = (descriptors[route.key]?.options ?? {}) as any;
     if (options.href === null) {
       return false;
@@ -181,7 +178,7 @@ export function ClubTabBar({
           return false;
         }
       } catch (e) {
-        // Ignorujemy błędy wywołania
+        // Ignore errors
       }
     }
     return true;
@@ -206,19 +203,13 @@ export function ClubTabBar({
       return;
     }
 
-    indicatorX.value = withSpring(
-      activeIndex * itemWidth,
-      INDICATOR_SPRING,
-    );
-  }, [activeIndex, itemWidth, indicatorX]);
-
-  const indicatorStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        translateX: indicatorX.value,
-      },
-    ],
-  }));
+    Animated.spring(indicatorX, {
+      toValue: activeIndex * itemWidth,
+      useNativeDriver: true,
+      friction: 8,
+      tension: 100,
+    }).start();
+  }, [activeIndex, itemWidth]);
 
   const handleLayout = (event: LayoutChangeEvent) => {
     setBarWidth(event.nativeEvent.layout.width);
@@ -243,8 +234,8 @@ export function ClubTabBar({
                   styles.activeIndicator,
                   {
                     width: Math.max(itemWidth - 5, 0),
+                    transform: [{ translateX: indicatorX }],
                   },
-                  indicatorStyle,
                 ]}
               />
             ) : null}
