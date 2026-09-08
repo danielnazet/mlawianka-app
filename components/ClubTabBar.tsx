@@ -215,6 +215,12 @@ export function ClubTabBar({
     setBarWidth(event.nativeEvent.layout.width);
   };
 
+  const currentRoute = state.routes[state.index];
+  const currentOptions = descriptors[currentRoute?.key]?.options ?? {};
+  if ((currentOptions.tabBarStyle as any)?.display === "none") {
+    return null;
+  }
+
   return (
     <View
       style={[
