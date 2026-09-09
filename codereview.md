@@ -166,6 +166,14 @@ Ten dokument zawiera historię zmian, przegląd architektury kodu po migracji do
       - Posiada spójne, stylowe przyciski akcji: główny przycisk logowania (*"Zaloguj się do aplikacji"*), przycisk rejestracji (*"Załóż bezpłatne konto"*) oraz dyskretny przycisk powrotu do podglądu grafiku (*"Przeglądaj grafik bez logowania"*).
     - **Zarządzanie rezerwacjami**: Użytkownicy mogą edytować i anulować swoje własne rezerwacje, a administratorzy mają pełną kontrolę nad całym grafikiem.
 
+16. **Uproszczenie UI i Eliminacja Duplikatów**:
+    - **Rezerwacja Orlika (`booking.tsx`)**: Usunięto powielony selektor wyboru boiska z górnej części ekranu, pozostawiając jeden spójny i ergonomiczny przełącznik.
+    - **Terminarz (`training.tsx`)**: Usunięto zbędny pod-widok "Wybrany dzień", skupiając widoki na przejrzystych kategoriach: *Wszystko*, *Treningi*, *Mecze* wraz z interaktywnym paskiem dni (Date Strip).
+
+17. **Wdrożenie Aktualizacji Bezprzewodowych (OTA - EAS Update)**:
+    - Zainstalowano i skonfigurowano moduł `expo-updates`.
+    - Umożliwiono natychmiastowe wdrażanie poprawek kodu i nowości (`npx eas-cli update --auto`) bezpośrednio na telefony użytkowników w czasie rzeczywistym, bez konieczności przechodzenia przez długi proces weryfikacji w Google Play / App Store.
+
 ---
 
 ## 🚀 Spis Wszystkich Migracji Bazy Danych (Supabase SQL)
