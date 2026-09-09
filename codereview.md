@@ -153,6 +153,19 @@ Ten dokument zawiera historię zmian, przegląd architektury kodu po migracji do
       - **Przycisk Anuluj (`modalCancelBtn`)**: Estetyczne jasnoszare tło (`#F1F5F9`), stonowany tekst i ikona `close-circle-outline`.
       - **Przycisk Zapisu / Rezerwacji (`modalSubmitBtn`)**: Nowoczesny zaokrąglony przycisk (radius `14px`) w barwach Royal Blue (`COLORS.primary`), z cieniami, wyrazistymi ikonami (`calendar-plus`, `check-circle-outline`, `content-save-outline`) oraz dynamiczną obsługą stanu zablokowania przy kolizji.
 
+15. **Ogólnodostępny Grafik Orlika, Wyraźne Oznaczenie 'ORLIK ZAJĘTY' & Rezerwacje dla Rodziców i Kibiców (`booking.tsx`)**:
+    - **Dostęp dla gości i niezalogowanych**: Grafik i kalendarz zajętości Orlika jest teraz w 100% jawny i widoczny dla każdego mieszkańca, rodzica i kibica (bez konieczności logowania, aby sprawdzić wolne godziny).
+    - **Rezerwacja wolnych terminów dla rodziców i kibiców**: Każdy zalogowany użytkownik (w tym rodzic `parent`, kibic `fan`, zawodnik `player`, trener i admin) może zarezerwować wolny termin na grę rekreacyjną, trening indywidualny czy sparing.
+    - **Wyraźne oznaczenie 'ORLIK ZAJĘTY'**:
+      - W przypadku treningów klubowych karta otrzymuje czerwoną belkę boczną oraz wyrazistą odznakę **`🚫 ORLIK ZAJĘTY`** z informacją o treningu i nazwiskiem trenera.
+      - W przypadku innych rezerwacji wyświetla się odznaka **`🔴 REZERWACJA (ZAJĘTE)`** wraz z informacją o osobie rezerwującej.
+    - **Dedykowany Klubowy Modal Logowania / Rejestracji (`authPromptModal`)**:
+      - Zastąpiono systemowy `Alert.alert` w pełni customowym, eleganckim oknem dialogowym w barwach GKS Strzegowo (`COLORS.primary`, `COLORS.white`).
+      - Wyświetla oficjalny herb/logo klubu w okrągłej oprawie z odznaką `GKS STRZEGOWO`.
+      - Prezentuje czytelną listę korzyści z posiadania konta (dla rodziców, kibiców i zawodników, szybka rezerwacja, powiadomienia i zarządzanie terminami).
+      - Posiada spójne, stylowe przyciski akcji: główny przycisk logowania (*"Zaloguj się do aplikacji"*), przycisk rejestracji (*"Załóż bezpłatne konto"*) oraz dyskretny przycisk powrotu do podglądu grafiku (*"Przeglądaj grafik bez logowania"*).
+    - **Zarządzanie rezerwacjami**: Użytkownicy mogą edytować i anulować swoje własne rezerwacje, a administratorzy mają pełną kontrolę nad całym grafikiem.
+
 ---
 
 ## 🚀 Spis Wszystkich Migracji Bazy Danych (Supabase SQL)
@@ -187,6 +200,7 @@ Wszystkie migracje znajdują się w folderze `supabase/migrations/` i zostały w
 26. [`20260819220000_fix_oauth_trigger.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260819220000_fix_oauth_trigger.sql) – Obsługa logowania Google OAuth w triggerze i poprawka ścieżek `/news`.
 27. [`20260819230000_exclude_children_from_chat.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260819230000_exclude_children_from_chat.sql) – Wykluczenie subprofili dzieci z listy kontaktów czatu i połączenie trenerów z rodzicami.
 28. [`20260821140000_orlik_location.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260821140000_orlik_location.sql) – Dodanie kolumny `location` do tabeli `orlik_bookings`.
+29. [`20260822100000_orlik_public_access_and_parent_booking.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260822100000_orlik_public_access_and_parent_booking.sql) – Polityki RLS udostępniające grafik Orlika gościom (`anon`) oraz pozwalające rodzicom i wszystkim zalogowanym użytkownikom rezerwować wolne godziny.
 
 ---
 
@@ -201,14 +215,14 @@ npx expo start -c
 
 | Plik | Status | Opis zmiany |
 | :--- | :--- | :--- |
-| [`app.json`](file:///d:/Nowy%20folder/mlawianka-app/app.json) | Zmodyfikowany | Konfiguracja SDK 57, splash screen plugin, platforms i permisje. |
-| [`package.json`](file:///d:/Nowy%20folder/mlawianka-app/package.json) | Zmodyfikowany | Aktualizacja do Expo SDK 57, React 19, React Native 0.86, usunięcie niekompatybilnego `react-native-reanimated`. |
+| [`app.json`](file:///d:/Nowy%20folder/mlawianka-app/app.json) | Zmodyfikowany | Konfiguracja SDK 57, splash screen plugin, expo-updates i runtimeVersion. |
+| [`package.json`](file:///d:/Nowy%20folder/mlawianka-app/package.json) | Zmodyfikowany | Aktualizacja do Expo SDK 57, React 19, React Native 0.86, instalacja `react-native-is-edge-to-edge`. |
 | [`babel.config.js`](file:///d:/Nowy%20folder/mlawianka-app/babel.config.js) | Zmodyfikowany | Usunięcie wtyczki reanimated. |
 | [`components/ClubTabBar.tsx`](file:///d:/Nowy%20folder/mlawianka-app/components/ClubTabBar.tsx) | Zmodyfikowany | Zastąpienie Reanimated wbudowanym `Animated` z `useNativeDriver: true`. |
 | [`css/colors.ts`](file:///d:/Nowy%20folder/mlawianka-app/css/colors.ts) | Zmodyfikowany | Kolorystyka klubowa GKS Strzegowo (Royal Blue). |
-| [`types/booking.ts`](file:///d:/Nowy%20folder/mlawianka-app/types/booking.ts) | Zmodyfikowany | Dodanie pola `location?: string` w `OrlikBooking`. |
+| [`app/(tabs)/_layout.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/_layout.tsx) | Zmodyfikowany | Odblokowanie widoczności zakładki Orlik w dolnym pasku nawigacyjnym dla wszystkich użytkowników i gości. |
 | [`app/(tabs)/news.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/news.tsx) | Zmodyfikowany | Karuzela do 3 zdjęć, siatka emotek, reakcje kibiców, multi-team targeting, FAB. |
-| [`app/(tabs)/training.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/training.tsx) | Zmodyfikowany | Wyśrodkowany 5-dniowy kalendarz (2 po lewej, 1 środek, 2 po prawej), responsywny modal z Dropdown Menus (drużyna, szablon jednostki, godzina, obiekt) oraz nowoczesne przyciski akcji. |
-| [`app/(tabs)/booking.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/booking.tsx) | Zmodyfikowany | Algorytm wykrywania i blokady kolizji terminów na Orliku, interaktywny baner, responsywne Drop Menu (boisko, sloty, cel) oraz wyśrodkowany 5-dniowy kalendarz i nowe przyciski akcji. |
+| [`app/(tabs)/training.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/training.tsx) | Zmodyfikowany | Wyśrodkowany 5-dniowy kalendarz, czysty 3-kafelkowy przełącznik widoków (`Dzień`, `Treningi`, `Mecze`) i responsywny modal. |
+| [`app/(tabs)/booking.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/booking.tsx) | Zmodyfikowany | Otwarty grafik Orlika dla gości, odznaka `🚫 ORLIK ZAJĘTY` przy treningach, możliwość rezerwacji dla rodziców/kibiców, wykrywanie kolizji i 5-dniowy kalendarz. |
 | [`app/(tabs)/chat.tsx`](file:///d:/Nowy%20folder/mlawianka-app/app/(tabs)/chat.tsx) | Zmodyfikowany | Czat realtime z wykluczeniem dzieci i bezpośrednim kontaktem rodzic-trener. |
-| [`supabase/migrations/20260821140000_orlik_location.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260821140000_orlik_location.sql) | **Nowy** | Kolumna `location` w `orlik_bookings`. |
+| [`supabase/migrations/20260822100000_orlik_public_access_and_parent_booking.sql`](file:///d:/Nowy%20folder/mlawianka-app/supabase/migrations/20260822100000_orlik_public_access_and_parent_booking.sql) | **Nowy** | Uprawnienia RLS dla publicznego grafiku i rezerwacji przez rodziców. |

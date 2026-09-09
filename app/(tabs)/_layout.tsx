@@ -71,7 +71,6 @@ export default function TabLayout() {
 
 	// Warunki dostępu
 	const isLoggedIn = Boolean(user);
-	const canManageBooking = isLoggedIn && (profile?.role === "admin" || profile?.role === "coach");
 
 	return (
 		<Tabs
@@ -123,7 +122,6 @@ export default function TabLayout() {
 				name="booking"
 				options={{
 					title: "Grafik Orlika",
-					href: canManageBooking ? undefined : null,
 				}}
 			/>
 
