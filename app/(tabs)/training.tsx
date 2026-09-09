@@ -202,6 +202,29 @@ export default function TrainingScreen() {
 		}
 	};
 
+	// Drużyny, którymi dany użytkownik zarządza (dla Admina wszystkie, dla Trenera tylko te, w których jest przypisany)
+	const managedTeams = useMemo(() => {
+		if (profile?.role === "admin") {
+			return teams;
+		}
+		if (profile?.role === "coach") {
+			return teams.filter(
+				(t) => t.coach_id === user?.id || t.id === profile?.team_id
+			);
+		}
+		return [];
+	}, [teams, profile, user]);
+
+	// Sprawdzenie czy trener/admin może zarządzać danym wydarzeniem (treningiem lub meczem)
+	const canManageEvent = (teamId: number | null) => {
+		if (profile?.role === "admin") return true;
+		if (profile?.role === "coach") {
+			if (!teamId) return false;
+			return managedTeams.some((t) => t.id === teamId);
+		}
+		return false;
+	};
+
 	const fetchData = async () => {
 		try {
 			await fetchTeams();
@@ -490,10 +513,18 @@ export default function TrainingScreen() {
 	};
 
 	const openAddDialog = () => {
+		if (profile?.role === "coach" && managedTeams.length === 0) {
+			Alert.alert(
+				"Brak przypisanej drużyny",
+				"Nie jesteś przypisany jako trener do żadnej drużyny. Skontaktuj się z administratorem, aby przypisał Cię do zespołu."
+			);
+			return;
+		}
+
 		setEditEventId(null);
 		setEventType("training");
 		const coachName = profile ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim() : "";
-		const defaultTeamId = profile?.team_id ? profile.team_id.toString() : (teams[0]?.id?.toString() || "");
+		const defaultTeamId = managedTeams[0]?.id?.toString() || (teams[0]?.id?.toString() || "");
 		const teamObj = teams.find(t => t.id.toString() === defaultTeamId);
 		setFormTitle(teamObj ? `Trening ${teamObj.name}` : "Trening piłkarski");
 		setFormDescription("");
@@ -512,6 +543,11 @@ export default function TrainingScreen() {
 	};
 
 	const openEditDialog = (event: any, type: "training" | "match") => {
+		if (!canManageEvent(event.team_id)) {
+			Alert.alert("Brak uprawnień", "Możesz edytować tylko wydarzenia swoich drużyn.");
+			return;
+		}
+
 		setEditEventId(event.id);
 		setEventType(type);
 		setFormError("");
@@ -544,6 +580,12 @@ export default function TrainingScreen() {
 	const handleAddOrEditEvent = async () => {
 		if (!formTeamId) {
 			setFormError("Proszę wybrać zespół.");
+			return;
+		}
+
+		const selectedTeamIdNum = parseInt(formTeamId);
+		if (profile?.role === "coach" && !managedTeams.some((t) => t.id === selectedTeamIdNum)) {
+			setFormError("Możesz dodawać wydarzenia tylko dla swojej drużyny.");
 			return;
 		}
 
@@ -631,7 +673,12 @@ export default function TrainingScreen() {
 		}
 	};
 
-	const confirmDeleteEvent = (id: number, type: "training" | "match") => {
+	const confirmDeleteEvent = (event: any, type: "training" | "match") => {
+		if (!canManageEvent(event.team_id)) {
+			Alert.alert("Brak uprawnień", "Możesz usuwać tylko wydarzenia swoich drużyn.");
+			return;
+		}
+
 		Alert.alert(
 			"Usuwanie wydarzenia",
 			"Czy na pewno chcesz usunąć to wydarzenie z terminarza?",
@@ -643,7 +690,7 @@ export default function TrainingScreen() {
 					onPress: async () => {
 						try {
 							const table = type === "training" ? "trainings" : "matches";
-							const { error } = await supabase.from(table).delete().eq("id", id);
+							const { error } = await supabase.from(table).delete().eq("id", event.id);
 							if (error) throw error;
 							fetchData();
 						} catch (err) {
@@ -682,7 +729,7 @@ export default function TrainingScreen() {
 
 	const renderTrainingCard = (training: Training) => {
 		let swipeableRef: Swipeable | null = null;
-		const canManage = isCoachOrAdmin;
+		const canManage = isCoachOrAdmin && canManageEvent(training.team_id);
 
 		const renderRightActions = () => (
 			<View style={styles.swipeActionsContainer}>
@@ -700,7 +747,7 @@ export default function TrainingScreen() {
 					style={[styles.swipeActionBtn, styles.deleteActionBtn]}
 					onPress={() => {
 						swipeableRef?.close();
-						confirmDeleteEvent(training.id, "training");
+						confirmDeleteEvent(training, "training");
 					}}
 				>
 					<MaterialIcons name="delete" size={22} color={COLORS.white} />
@@ -761,7 +808,7 @@ export default function TrainingScreen() {
 
 	const renderMatchCard = (match: Match) => {
 		let swipeableRef: Swipeable | null = null;
-		const canManage = isCoachOrAdmin;
+		const canManage = isCoachOrAdmin && canManageEvent(match.team_id);
 
 		const renderRightActions = () => (
 			<View style={styles.swipeActionsContainer}>
@@ -779,7 +826,7 @@ export default function TrainingScreen() {
 					style={[styles.swipeActionBtn, styles.deleteActionBtn]}
 					onPress={() => {
 						swipeableRef?.close();
-						confirmDeleteEvent(match.id, "match");
+						confirmDeleteEvent(match, "match");
 					}}
 				>
 					<MaterialIcons name="delete" size={22} color={COLORS.white} />
@@ -971,8 +1018,8 @@ export default function TrainingScreen() {
 							tab.id === "trainings"
 								? ` (${trainings.length})`
 								: tab.id === "matches"
-								? ` (${matches.length})`
-								: "";
+									? ` (${matches.length})`
+									: "";
 
 						return (
 							<TouchableOpacity
@@ -1228,7 +1275,7 @@ export default function TrainingScreen() {
 											style={{ marginRight: 6 }}
 										/>
 										<Text style={[styles.formTypeBtnText, eventType === "match" && styles.formTypeBtnTextActive]}>
-											Mecz ligowy / sparing
+											Mecz / sparing
 										</Text>
 									</TouchableOpacity>
 								</View>
@@ -1237,58 +1284,77 @@ export default function TrainingScreen() {
 							{/* 1. DROP MENU: Wybór Drużyny */}
 							<View style={styles.dropdownContainer}>
 								<Text style={styles.fieldSectionLabel}>Drużyna / Grupa:</Text>
-								<TouchableOpacity
-									activeOpacity={0.85}
-									onPress={() => {
-										setTeamDropdownOpen(!teamDropdownOpen);
-										setTemplateDropdownOpen(false);
-										setLocationDropdownOpen(false);
-										setHourDropdownOpen(false);
-									}}
-									style={[styles.dropdownHeader, teamDropdownOpen && styles.dropdownHeaderActive]}
-								>
-									<MaterialCommunityIcons name="shield-outline" size={20} color={COLORS.primary} />
-									<View style={{ flex: 1 }}>
-										<Text style={styles.dropdownSelectedText}>
-											{formTeamId ? getTeamName(parseInt(formTeamId)) : "Wybierz zespół..."}
-										</Text>
+								{managedTeams.length <= 1 ? (
+									<View style={[styles.dropdownHeader, { backgroundColor: "#f1f5f9" }]}>
+										<MaterialCommunityIcons name="shield-account" size={20} color={COLORS.primary} />
+										<View style={{ flex: 1 }}>
+											<Text style={[styles.dropdownSelectedText, { color: COLORS.textDark }]}>
+												{formTeamId ? getTeamName(parseInt(formTeamId)) : (managedTeams[0]?.name || "Brak przypisanego zespołu")}
+											</Text>
+											{profile?.role === "coach" && (
+												<Text style={{ fontSize: 11, color: COLORS.textLight, fontFamily: FONTS.regular }}>
+													Twój przypisany zespół
+												</Text>
+											)}
+										</View>
+										<MaterialCommunityIcons name="lock-outline" size={18} color={COLORS.textLight} />
 									</View>
-									<MaterialIcons
-										name={teamDropdownOpen ? "keyboard-arrow-up" : "keyboard-arrow-down"}
-										size={22}
-										color={COLORS.textLight}
-									/>
-								</TouchableOpacity>
+								) : (
+									<>
+										<TouchableOpacity
+											activeOpacity={0.85}
+											onPress={() => {
+												setTeamDropdownOpen(!teamDropdownOpen);
+												setTemplateDropdownOpen(false);
+												setLocationDropdownOpen(false);
+												setHourDropdownOpen(false);
+											}}
+											style={[styles.dropdownHeader, teamDropdownOpen && styles.dropdownHeaderActive]}
+										>
+											<MaterialCommunityIcons name="shield-outline" size={20} color={COLORS.primary} />
+											<View style={{ flex: 1 }}>
+												<Text style={styles.dropdownSelectedText}>
+													{formTeamId ? getTeamName(parseInt(formTeamId)) : "Wybierz zespół..."}
+												</Text>
+											</View>
+											<MaterialIcons
+												name={teamDropdownOpen ? "keyboard-arrow-up" : "keyboard-arrow-down"}
+												size={22}
+												color={COLORS.textLight}
+											/>
+										</TouchableOpacity>
 
-								{teamDropdownOpen && (
-									<View style={styles.dropdownBody}>
-										{teams.map((t) => {
-											const isSelected = formTeamId === t.id.toString();
-											return (
-												<TouchableOpacity
-													key={t.id}
-													activeOpacity={0.8}
-													onPress={() => {
-														setFormTeamId(t.id.toString());
-														setTeamDropdownOpen(false);
-													}}
-													style={[styles.dropdownOption, isSelected && styles.dropdownOptionActive]}
-												>
-													<MaterialCommunityIcons
-														name="shield-outline"
-														size={18}
-														color={isSelected ? COLORS.primary : COLORS.textLight}
-													/>
-													<Text style={[styles.dropdownOptionTitle, isSelected && styles.dropdownOptionTitleActive, { flex: 1 }]}>
-														{t.name}
-													</Text>
-													{isSelected && (
-														<MaterialIcons name="check" size={18} color={COLORS.primary} />
-													)}
-												</TouchableOpacity>
-											);
-										})}
-									</View>
+										{teamDropdownOpen && (
+											<View style={styles.dropdownBody}>
+												{managedTeams.map((t) => {
+													const isSelected = formTeamId === t.id.toString();
+													return (
+														<TouchableOpacity
+															key={t.id}
+															activeOpacity={0.8}
+															onPress={() => {
+																setFormTeamId(t.id.toString());
+																setTeamDropdownOpen(false);
+															}}
+															style={[styles.dropdownOption, isSelected && styles.dropdownOptionActive]}
+														>
+															<MaterialCommunityIcons
+																name="shield-outline"
+																size={18}
+																color={isSelected ? COLORS.primary : COLORS.textLight}
+															/>
+															<Text style={[styles.dropdownOptionTitle, isSelected && styles.dropdownOptionTitleActive, { flex: 1 }]}>
+																{t.name}
+															</Text>
+															{isSelected && (
+																<MaterialIcons name="check" size={18} color={COLORS.primary} />
+															)}
+														</TouchableOpacity>
+													);
+												})}
+											</View>
+										)}
+									</>
 								)}
 							</View>
 
@@ -1590,8 +1656,8 @@ export default function TrainingScreen() {
 										{editEventId !== null
 											? "Zapisz zmiany"
 											: eventType === "training"
-											? "Dodaj do terminarza"
-											: "Zapisz mecz"}
+												? "Dodaj do terminarza"
+												: "Zapisz mecz"}
 									</Text>
 								</View>
 							)}

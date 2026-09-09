@@ -74,7 +74,7 @@ export default function TabLayout() {
 
 	return (
 		<Tabs
-			tabBar={(props) => <ClubTabBar {...props} />}
+			tabBar={(props: any) => <ClubTabBar {...props} />}
 			screenOptions={{
 				headerShown: true,
 				headerTitle: () => <HeaderTitle />,

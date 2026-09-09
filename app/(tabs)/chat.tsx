@@ -8,8 +8,11 @@ import {
 	RefreshControl,
 	ScrollView,
 	StyleSheet,
+	TextInput as RNTextInput,
+	TouchableOpacity,
 	View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
 	Avatar,
@@ -19,6 +22,9 @@ import {
 	Text,
 	TextInput,
 } from "react-native-paper";
+import { useNavigation } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
 import { useNotifications } from "../../contexts/NotificationContext";
@@ -67,6 +73,8 @@ const getInitials = (contact: ChatContact) =>
 	`${contact.first_name?.[0] ?? ""}${contact.last_name?.[0] ?? ""}`.toUpperCase() || "U";
 
 export default function ChatScreen() {
+	const navigation = useNavigation();
+	const insets = useSafeAreaInsets();
 	const { user, profile } = useAuth();
 	const { unreadChatsMap, markChatAsRead, setActiveChatId } = useNotifications();
 	const [contacts, setContacts] = useState<ChatContact[]>([]);
@@ -84,6 +92,14 @@ export default function ChatScreen() {
 
 	const flatListRef = useRef<FlatList<ChatMessage>>(null);
 	const isStaff = profile?.role === "admin" || profile?.role === "coach";
+
+	// Ukryj główny pasek "GKS Strzegowo" i dolny pasek nawigacji gdy otwarta jest rozmowa
+	useEffect(() => {
+		navigation.setOptions({
+			headerShown: !activeChat,
+			tabBarStyle: { display: activeChat ? "none" : "flex" },
+		});
+	}, [activeChat, navigation]);
 
 	// Synchronize active chat ID with global context
 	useEffect(() => {
@@ -304,16 +320,21 @@ export default function ChatScreen() {
 		return (
 			<KeyboardAvoidingView
 				behavior={Platform.OS === "ios" ? "padding" : undefined}
-				keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+				keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
 				style={styles.container}
 			>
-				<View style={styles.chatHeader}>
+				<LinearGradient
+					colors={[COLORS.primaryDark, COLORS.primary]}
+					start={{ x: 0, y: 0.5 }}
+					end={{ x: 1, y: 0.5 }}
+					style={[styles.chatHeader, { paddingTop: Math.max(insets.top, 12) }]}
+				>
 					<IconButton icon="arrow-left" iconColor={COLORS.white} onPress={() => setActiveChat(null)} />
 					<View style={styles.chatHeaderCopy}>
 						<Text style={styles.chatHeaderTitle} numberOfLines={1}>{activeChat.title}</Text>
 						{activeChat.subtitle ? <Text style={styles.chatHeaderSubtitle}>{activeChat.subtitle}</Text> : null}
 					</View>
-				</View>
+				</LinearGradient>
 
 				{messagesLoading && messages.length === 0 ? (
 					<View style={styles.centerContainer}>
@@ -338,35 +359,39 @@ export default function ChatScreen() {
 					/>
 				)}
 
-				<View style={styles.inputBar}>
-					<TextInput
-						value={newMessageText}
-						onChangeText={setNewMessageText}
-						placeholder="Napisz wiadomość…"
-						style={styles.textInput}
-						contentStyle={styles.textInputContent}
-						mode="outlined"
-						outlineColor={COLORS.border}
-						activeOutlineColor={COLORS.primary}
-						textColor={COLORS.textDark}
-						multiline
-						maxLength={2000}
-					/>
-					{sending ? (
-						<View style={styles.sendingIndicator}>
-							<ActivityIndicator size="small" color={COLORS.primary} />
-						</View>
-					) : (
-						<IconButton
-							icon="send"
-							iconColor={COLORS.white}
-							containerColor={COLORS.primary}
-							size={22}
-							onPress={handleSendMessage}
-							disabled={!newMessageText.trim()}
-							style={styles.sendButton}
+				<View style={[styles.inputBarContainer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+					<View style={styles.inputInnerWrapper}>
+						<RNTextInput
+							value={newMessageText}
+							onChangeText={setNewMessageText}
+							placeholder="Napisz wiadomość…"
+							placeholderTextColor="#94a3b8"
+							style={styles.chatTextInput}
+							multiline
+							maxLength={2000}
 						/>
-					)}
+					</View>
+
+					<TouchableOpacity
+						activeOpacity={0.8}
+						onPress={handleSendMessage}
+						disabled={!newMessageText.trim() || sending}
+						style={[
+							styles.sendBtn,
+							newMessageText.trim() ? styles.sendBtnActive : styles.sendBtnDisabled,
+						]}
+					>
+						{sending ? (
+							<ActivityIndicator size="small" color={COLORS.white} />
+						) : (
+							<Ionicons
+								name="send"
+								size={19}
+								color={newMessageText.trim() ? COLORS.white : "#94a3b8"}
+								style={{ marginLeft: 2 }}
+							/>
+						)}
+					</TouchableOpacity>
 				</View>
 
 				<Snackbar visible={Boolean(error)} onDismiss={() => setError("")} duration={3500}>
@@ -655,24 +680,59 @@ const styles = StyleSheet.create({
 	ownMessageText: { color: COLORS.white },
 	messageTime: { alignSelf: "flex-end", color: COLORS.textLight, fontSize: 10, marginTop: 4, fontFamily: FONTS.regular },
 	ownMessageTime: { color: "#bfdbfe" },
-	inputBar: {
-		alignItems: "flex-end",
+	inputBarContainer: {
 		backgroundColor: COLORS.white,
-		borderTopColor: COLORS.border,
+		borderTopColor: "#e2e8f0",
 		borderTopWidth: 1,
 		flexDirection: "row",
-		paddingHorizontal: 10,
-		paddingVertical: 8,
+		alignItems: "flex-end",
+		paddingHorizontal: 12,
+		paddingTop: 10,
+		shadowColor: "#000",
+		shadowOffset: { width: 0, height: -3 },
+		shadowOpacity: 0.05,
+		shadowRadius: 6,
+		elevation: 6,
+		gap: 8,
 	},
-	textInput: { backgroundColor: COLORS.white, flex: 1, maxHeight: 120 },
-	textInputContent: { minHeight: 44 },
-	sendButton: { marginBottom: 2, marginLeft: 7 },
-	sendingIndicator: {
-		alignItems: "center",
-		height: 48,
+	inputInnerWrapper: {
+		flex: 1,
+		backgroundColor: "#f8fafc",
+		borderColor: "#e2e8f0",
+		borderWidth: 1,
+		borderRadius: 22,
+		paddingHorizontal: 14,
+		paddingVertical: Platform.OS === "ios" ? 8 : 4,
+		minHeight: 44,
+		maxHeight: 120,
 		justifyContent: "center",
-		marginLeft: 7,
-		width: 48,
+	},
+	chatTextInput: {
+		color: COLORS.textDark,
+		fontFamily: FONTS.regular,
+		fontSize: 15,
+		lineHeight: 20,
+		paddingTop: 0,
+		paddingBottom: 0,
+		margin: 0,
+	},
+	sendBtn: {
+		width: 44,
+		height: 44,
+		borderRadius: 22,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	sendBtnActive: {
+		backgroundColor: COLORS.primary,
+		shadowColor: COLORS.primary,
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.35,
+		shadowRadius: 4,
+		elevation: 3,
+	},
+	sendBtnDisabled: {
+		backgroundColor: "#f1f5f9",
 	},
 	badgeContainer: {
 		backgroundColor: COLORS.primary,
