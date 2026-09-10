@@ -10,6 +10,7 @@ import {
 	Alert,
 	FlatList,
 	Dimensions,
+	Image,
 } from "react-native";
 import {
 	Card,
@@ -98,6 +99,7 @@ export default function BookingScreen() {
 
 	// Stan formularza rezerwacji Orlika
 	const [dialogVisible, setDialogVisible] = useState(false);
+	const [authPromptModalVisible, setAuthPromptModalVisible] = useState(false);
 	const [editOrlikBookingId, setEditOrlikBookingId] = useState<number | null>(null);
 	const [formPitchLocation, setFormPitchLocation] = useState(ORLIK_PITCHES[1].address);
 	const [formPitchModalVisible, setFormPitchModalVisible] = useState(false);
@@ -260,11 +262,11 @@ export default function BookingScreen() {
 		orlikBookings.forEach((ob) => {
 			const booker = ob.profile
 				? `${ob.profile.first_name || ""} ${ob.profile.last_name || ""}`.trim()
-				: "Sztab Klubu";
+				: "Użytkownik / Sztab";
 
 			const canManage =
 				profile?.role === "admin" ||
-				(profile?.role === "coach" && ob.booked_by === user?.id);
+				(Boolean(user) && ob.booked_by === user?.id);
 
 			slots.push({
 				id: `booking-${ob.id}`,
@@ -274,7 +276,7 @@ export default function BookingScreen() {
 				startTime: ob.start_time ? ob.start_time.substring(0, 5) : "17:00",
 				endTime: ob.end_time ? ob.end_time.substring(0, 5) : "18:30",
 				title: ob.description || "Rezerwacja boiska",
-				bookerName: booker || "Trener GKS Strzegowo",
+				bookerName: booker || "Użytkownik",
 				description: ob.description,
 				pitchLocation: ob.location || ORLIK_PITCHES[1].address,
 				canManage,
@@ -306,6 +308,7 @@ export default function BookingScreen() {
 						canManage:
 							profile?.role === "admin" ||
 							(profile?.role === "coach" &&
+								Boolean(user) &&
 								t.coach?.toLowerCase().includes(profile.last_name?.toLowerCase() || "")),
 					});
 				}
@@ -428,6 +431,14 @@ const targetDay = calendarDays[targetIndex];
 		if (!dialogVisible || !bookingDate || !startTime || !endTime || !formPitchLocation) return null;
 		return checkBookingConflict(bookingDate, startTime, endTime, formPitchLocation, editOrlikBookingId);
 	}, [dialogVisible, bookingDate, startTime, endTime, formPitchLocation, editOrlikBookingId, unifiedSlots]);
+
+	const handleBookingPress = () => {
+		if (!user) {
+			setAuthPromptModalVisible(true);
+			return;
+		}
+		openOrlikDialog();
+	};
 
 	const openOrlikDialog = () => {
 		setEditOrlikBookingId(null);
@@ -586,302 +597,288 @@ const targetDay = calendarDays[targetIndex];
 			style={styles.container}
 			imageStyle={styles.backgroundImageStyle}
 		>
-			{!user ? (
-				<View style={styles.guestContainer}>
-					<Card style={styles.guestCard}>
-						<Card.Content style={styles.guestContent}>
-							<Avatar.Icon size={56} icon="stadium" color={COLORS.primary} style={styles.guestIcon} />
-							<Title style={styles.guestTitle}>Grafik Boisk Orlik</Title>
-							<Paragraph style={styles.guestDescription}>
-								Grafik rezerwacji boisk Orlik oraz plan treningów jest dostępny dla trenerów i administratorów klubu GKS Strzegowo.
-							</Paragraph>
+			{/* Kalendarz Dni (Date Carousel) */}
+			<View style={styles.calendarHeaderContainer}>
+				<View style={styles.monthHeaderRow}>
+					<View style={styles.monthTitleWrapper}>
+						<MaterialCommunityIcons name="calendar-month" size={22} color={COLORS.primary} />
+						<Text style={styles.monthTitleText}>
+							{selectedDayInfo.monthNameNom} {selectedDayInfo.year}
+						</Text>
+					</View>
+
+					<View style={styles.monthNavButtons}>
+						<TouchableOpacity
+							activeOpacity={0.7}
+							style={styles.monthNavBtn}
+							onPress={() => handleShiftWeek("prev")}
+						>
+							<MaterialIcons name="chevron-left" size={24} color={COLORS.textDark} />
+						</TouchableOpacity>
+
+						<TouchableOpacity
+							activeOpacity={0.7}
+							style={styles.todayQuickBtn}
+							onPress={handleJumpToToday}
+						>
+							<Text style={styles.todayQuickBtnText}>Dziś</Text>
+						</TouchableOpacity>
+
+						<TouchableOpacity
+							activeOpacity={0.7}
+							style={styles.monthNavBtn}
+							onPress={() => handleShiftWeek("next")}
+						>
+							<MaterialIcons name="chevron-right" size={24} color={COLORS.textDark} />
+						</TouchableOpacity>
+					</View>
+				</View>
+
+				<FlatList
+					ref={calendarListRef}
+					data={calendarDays}
+					keyExtractor={(item) => item.dateKey}
+					horizontal
+					showsHorizontalScrollIndicator={false}
+					contentContainerStyle={styles.calendarListContent}
+					getItemLayout={(_, index) => ({
+						length: DAY_TOTAL_ITEM_WIDTH,
+						offset: DAY_TOTAL_ITEM_WIDTH * index,
+						index,
+					})}
+					renderItem={({ item, index }) => {
+						const isSelected = item.dateKey === selectedDateKey;
+						const hasEvents = hasBookingsOnDate(item.dateKey);
+
+						return (
+							<TouchableOpacity
+								activeOpacity={0.8}
+								onPress={() => handleSelectDate(item.dateKey, index)}
+								style={[
+									styles.dayItem,
+									isSelected && styles.dayItemActive,
+									item.isToday && !isSelected && styles.dayItemToday,
+								]}
+							>
+								<Text
+									style={[
+										styles.dayOfWeekText,
+										isSelected ? styles.dayOfWeekTextActive : styles.dayOfWeekTextInactive,
+									]}
+								>
+									{item.dayOfWeekShort}
+								</Text>
+
+								<Text
+									style={[
+										styles.dayNumberText,
+										isSelected ? styles.dayNumberTextActive : styles.dayNumberTextInactive,
+									]}
+								>
+									{item.dayNumber}
+								</Text>
+
+								{hasEvents && (
+									<View
+										style={[
+											styles.eventDot,
+											isSelected ? styles.eventDotActive : styles.eventDotInactive,
+										]}
+									/>
+								)}
+							</TouchableOpacity>
+						);
+					}}
+				/>
+			</View>
+
+			{/* SZYBKI WYBÓR BOISKA ORLIK (WSZYSTKIE / ORLIK SP / ORLIK PARKOWA) */}
+			<View style={styles.pitchSelectorContainer}>
+				<View style={styles.quickPitchesRow}>
+					{ORLIK_PITCHES.map((pitch) => {
+						const isSelected = selectedPitchId === pitch.id;
+						return (
+							<TouchableOpacity
+								key={pitch.id}
+								activeOpacity={0.85}
+								onPress={() => setSelectedPitchId(pitch.id)}
+								style={[styles.quickPitchBtn, isSelected && styles.quickPitchBtnActive]}
+							>
+								<MaterialCommunityIcons
+									name="soccer-field"
+									size={16}
+									color={isSelected ? COLORS.white : COLORS.textDark}
+									style={{ marginRight: 4 }}
+								/>
+								<Text
+									style={[styles.quickPitchBtnText, isSelected && styles.quickPitchBtnTextActive]}
+									numberOfLines={1}
+								>
+									{pitch.shortName}
+								</Text>
+							</TouchableOpacity>
+						);
+					})}
+				</View>
+			</View>
+
+			<ScrollView
+				contentContainerStyle={styles.scrollContainer}
+				keyboardShouldPersistTaps="handled"
+				refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
+			>
+				{/* DUŻY PRZYCISK REZERWACJI BOISKA DLA KAŻDEGO (RODZIC, TRENER, KIBIC, GOŚĆ) */}
+				<TouchableOpacity
+					activeOpacity={0.85}
+					onPress={handleBookingPress}
+					style={styles.heroBookingButton}
+				>
+					<MaterialIcons name="add-circle" size={24} color={COLORS.white} style={{ marginRight: 8 }} />
+					<Text style={styles.heroBookingButtonText}>
+						{user ? "Zarezerwuj godziny na Orliku" : "Zaloguj się, aby zarezerwować Orlik"}
+					</Text>
+				</TouchableOpacity>
+
+				{/* Podsumowanie Dnia */}
+				<View style={styles.dayHeaderRow}>
+					<View style={{ flex: 1 }}>
+						<Text style={styles.dayTitleText}>
+							{selectedDayInfo.dayOfWeekFull}, {selectedDayInfo.dayNumber} {selectedDayInfo.monthName}
+						</Text>
+						<Text style={styles.dayStatusText}>
+							{daySlots.length === 0
+								? "🟢 Cały dzień wolny"
+								: `${daySlots.length} zajęte przedziały godzinowe`}
+						</Text>
+					</View>
+				</View>
+
+				{/* Lista zajętych terminów na dany dzień */}
+				{daySlots.length === 0 ? (
+					<Card style={styles.freePitchCard}>
+						<Card.Content style={styles.freePitchContent}>
+							<View style={styles.freeIconCircle}>
+								<MaterialCommunityIcons name="check-circle-outline" size={40} color="#16a34a" />
+							</View>
+							<Text style={styles.freeTitle}>Boisko jest w pełni wolne</Text>
+							<Text style={styles.freeSubtext}>
+								W tym dniu nie zaplanowano żadnych treningów ani rezerwacji. Możesz bez przeszkód zarezerwować wolny termin na grę lub trening.
+							</Text>
 							<Button
 								mode="contained"
-								onPress={() => router.push("/auth/login")}
-								style={styles.guestButton}
-								labelStyle={styles.guestButtonLabel}
+								icon="calendar-plus"
+								onPress={handleBookingPress}
+								style={styles.freeAddBtn}
+								buttonColor={COLORS.primary}
+								textColor={COLORS.white}
 							>
-								Zaloguj się
+								{user ? "Zarezerwuj wolny termin" : "Zaloguj się, aby zarezerwować"}
 							</Button>
 						</Card.Content>
 					</Card>
-				</View>
-			) : (
-				<>
-					{/* Kalendarz Dni (Date Carousel) */}
-					<View style={styles.calendarHeaderContainer}>
-						<View style={styles.monthHeaderRow}>
-							<View style={styles.monthTitleWrapper}>
-								<MaterialCommunityIcons name="calendar-month" size={22} color={COLORS.primary} />
-								<Text style={styles.monthTitleText}>
-									{selectedDayInfo.monthNameNom} {selectedDayInfo.year}
-								</Text>
-							</View>
+				) : (
+					daySlots.map((slot) => {
+						let swipeableRef: Swipeable | null = null;
 
-							<View style={styles.monthNavButtons}>
+						const renderRightActions = () => (
+							<View style={styles.swipeActionsContainer}>
 								<TouchableOpacity
-									activeOpacity={0.7}
-									style={styles.monthNavBtn}
-									onPress={() => handleShiftWeek("prev")}
+									style={[styles.swipeActionBtn, styles.editActionBtn]}
+									onPress={() => {
+										swipeableRef?.close();
+										openEditOrlikDialog(slot);
+									}}
 								>
-									<MaterialIcons name="chevron-left" size={24} color={COLORS.textDark} />
+									<MaterialIcons name="edit" size={22} color={COLORS.white} />
+									<Text style={styles.swipeActionText}>Edytuj</Text>
 								</TouchableOpacity>
-
 								<TouchableOpacity
-									activeOpacity={0.7}
-									style={styles.todayQuickBtn}
-									onPress={handleJumpToToday}
+									style={[styles.swipeActionBtn, styles.deleteActionBtn]}
+									onPress={() => {
+										swipeableRef?.close();
+										handleDeleteSlot(slot);
+									}}
 								>
-									<Text style={styles.todayQuickBtnText}>Dziś</Text>
-								</TouchableOpacity>
-
-								<TouchableOpacity
-									activeOpacity={0.7}
-									style={styles.monthNavBtn}
-									onPress={() => handleShiftWeek("next")}
-								>
-									<MaterialIcons name="chevron-right" size={24} color={COLORS.textDark} />
+									<MaterialIcons name="delete" size={22} color={COLORS.white} />
+									<Text style={styles.swipeActionText}>Usuń</Text>
 								</TouchableOpacity>
 							</View>
-						</View>
+						);
 
-						<FlatList
-							ref={calendarListRef}
-							data={calendarDays}
-							keyExtractor={(item) => item.dateKey}
-							horizontal
-							showsHorizontalScrollIndicator={false}
-							contentContainerStyle={styles.calendarListContent}
-							getItemLayout={(_, index) => ({
-								length: DAY_TOTAL_ITEM_WIDTH,
-								offset: DAY_TOTAL_ITEM_WIDTH * index,
-								index,
-							})}
-							renderItem={({ item, index }) => {
-								const isSelected = item.dateKey === selectedDateKey;
-								const hasEvents = hasBookingsOnDate(item.dateKey);
+						const isTraining = slot.sourceType === "training";
 
-								return (
-									<TouchableOpacity
-										activeOpacity={0.8}
-										onPress={() => handleSelectDate(item.dateKey, index)}
-										style={[
-											styles.dayItem,
-											isSelected && styles.dayItemActive,
-											item.isToday && !isSelected && styles.dayItemToday,
-										]}
-									>
-										<Text
-											style={[
-												styles.dayOfWeekText,
-												isSelected ? styles.dayOfWeekTextActive : styles.dayOfWeekTextInactive,
-											]}
-										>
-											{item.dayOfWeekShort}
-										</Text>
+						const card = (
+							<Card style={[styles.slotCard, isTraining ? styles.trainingSlotCard : styles.bookingSlotCard]}>
+								<Card.Content style={styles.slotContent}>
+									<View style={styles.slotTopRow}>
+										<View style={styles.timePill}>
+											<MaterialCommunityIcons name="clock-time-four-outline" size={15} color={COLORS.primary} />
+											<Text style={styles.timePillText}>
+												{slot.startTime} {slot.endTime ? `- ${slot.endTime}` : ""}
+											</Text>
+										</View>
 
-										<Text
-											style={[
-												styles.dayNumberText,
-												isSelected ? styles.dayNumberTextActive : styles.dayNumberTextInactive,
-											]}
-										>
-											{item.dayNumber}
-										</Text>
-
-										{hasEvents && (
-											<View
-												style={[
-													styles.eventDot,
-													isSelected ? styles.eventDotActive : styles.eventDotInactive,
-												]}
+										<View style={[styles.typeBadge, isTraining ? styles.occupiedBadge : styles.bookingBadge]}>
+											<MaterialCommunityIcons
+												name={isTraining ? "alert-octagon" : "calendar-check"}
+												size={14}
+												color={isTraining ? "#dc2626" : "#b45309"}
+												style={{ marginRight: 4 }}
 											/>
-										)}
-									</TouchableOpacity>
-								);
-							}}
-						/>
-					</View>
-
-					{/* SZYBKI WYBÓR BOISKA ORLIK (WSZYSTKIE / ORLIK SP / ORLIK PARKOWA) */}
-					<View style={styles.pitchSelectorContainer}>
-						<View style={styles.quickPitchesRow}>
-							{ORLIK_PITCHES.map((pitch) => {
-								const isSelected = selectedPitchId === pitch.id;
-								return (
-									<TouchableOpacity
-										key={pitch.id}
-										activeOpacity={0.85}
-										onPress={() => setSelectedPitchId(pitch.id)}
-										style={[styles.quickPitchBtn, isSelected && styles.quickPitchBtnActive]}
-									>
-										<MaterialCommunityIcons
-											name="soccer-field"
-											size={16}
-											color={isSelected ? COLORS.white : COLORS.textDark}
-											style={{ marginRight: 4 }}
-										/>
-										<Text
-											style={[styles.quickPitchBtnText, isSelected && styles.quickPitchBtnTextActive]}
-											numberOfLines={1}
-										>
-											{pitch.shortName}
-										</Text>
-									</TouchableOpacity>
-								);
-							})}
-						</View>
-					</View>
-
-					<ScrollView
-						contentContainerStyle={styles.scrollContainer}
-						keyboardShouldPersistTaps="handled"
-						refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
-					>
-						{/* DUŻY, WYGODNY PRZYCISK REZERWACJI BOISKA DLA TRENERA / ADMINA */}
-						{isCoachOrAdmin && (
-							<TouchableOpacity
-								activeOpacity={0.85}
-								onPress={openOrlikDialog}
-								style={styles.heroBookingButton}
-							>
-								<MaterialIcons name="add-circle" size={24} color={COLORS.white} style={{ marginRight: 8 }} />
-								<Text style={styles.heroBookingButtonText}>Zarezerwuj godziny na Orliku</Text>
-							</TouchableOpacity>
-						)}
-
-						{/* Podsumowanie Dnia */}
-						<View style={styles.dayHeaderRow}>
-							<View style={{ flex: 1 }}>
-								<Text style={styles.dayTitleText}>
-									{selectedDayInfo.dayOfWeekFull}, {selectedDayInfo.dayNumber} {selectedDayInfo.monthName}
-								</Text>
-								<Text style={styles.dayStatusText}>
-									{daySlots.length === 0
-										? "🟢 Cały dzień wolny"
-										: `${daySlots.length} zajęte przedziały godzinowe`}
-								</Text>
-							</View>
-						</View>
-
-						{/* Lista zajętych terminów na dany dzień */}
-						{daySlots.length === 0 ? (
-							<Card style={styles.freePitchCard}>
-								<Card.Content style={styles.freePitchContent}>
-									<View style={styles.freeIconCircle}>
-										<MaterialCommunityIcons name="check-circle-outline" size={40} color="#16a34a" />
+											<Text style={[styles.typeBadgeText, isTraining ? styles.occupiedBadgeText : styles.bookingBadgeText]}>
+												{isTraining ? "🚫 ORLIK ZAJĘTY" : "🔴 REZERWACJA (ZAJĘTE)"}
+											</Text>
+										</View>
 									</View>
-									<Text style={styles.freeTitle}>Boisko jest w pełni wolne</Text>
-									<Text style={styles.freeSubtext}>
-										W tym dniu nie zaplanowano żadnych treningów ani rezerwacji. Możesz bez przeszkód zarezerwować termin dla swojej grupy.
+
+									<Text style={styles.slotTitle}>
+										{isTraining
+											? (slot.title ? `Trening: ${slot.title}` : "Trening klubowy GKS Strzegowo")
+											: (slot.title || "Rezerwacja boiska")}
 									</Text>
-									{isCoachOrAdmin && (
-										<Button
-											mode="contained"
-											icon="calendar-plus"
-											onPress={openOrlikDialog}
-											style={styles.freeAddBtn}
-											buttonColor={COLORS.primary}
-											textColor={COLORS.white}
-										>
-											Zarezerwuj godziny dla drużyny
-										</Button>
-									)}
+
+									<View style={styles.slotMetaRow}>
+										<View style={styles.metaItem}>
+											<MaterialCommunityIcons
+												name={isTraining ? "whistle-outline" : "account-circle-outline"}
+												size={15}
+												color={isTraining ? "#dc2626" : COLORS.textLight}
+											/>
+											<Text style={[styles.metaText, isTraining && { color: "#991b1b", fontFamily: FONTS.semiBold }]}>
+												{isTraining ? `Trener: ${slot.bookerName}` : `Rezerwacja: ${slot.bookerName}`}
+											</Text>
+										</View>
+
+										<View style={styles.metaItem}>
+											<MaterialCommunityIcons name="map-marker-outline" size={15} color={COLORS.textLight} />
+											<Text style={styles.metaText} numberOfLines={1}>
+												{slot.pitchLocation.includes("Parkowa") ? "Orlik Parkowa" : "Orlik SP"}
+											</Text>
+										</View>
+									</View>
 								</Card.Content>
 							</Card>
-						) : (
-							daySlots.map((slot) => {
-								let swipeableRef: Swipeable | null = null;
+						);
 
-								const renderRightActions = () => (
-									<View style={styles.swipeActionsContainer}>
-										<TouchableOpacity
-											style={[styles.swipeActionBtn, styles.editActionBtn]}
-											onPress={() => {
-												swipeableRef?.close();
-												openEditOrlikDialog(slot);
-											}}
-										>
-											<MaterialIcons name="edit" size={22} color={COLORS.white} />
-											<Text style={styles.swipeActionText}>Edytuj</Text>
-										</TouchableOpacity>
-										<TouchableOpacity
-											style={[styles.swipeActionBtn, styles.deleteActionBtn]}
-											onPress={() => {
-												swipeableRef?.close();
-												handleDeleteSlot(slot);
-											}}
-										>
-											<MaterialIcons name="delete" size={22} color={COLORS.white} />
-											<Text style={styles.swipeActionText}>Usuń</Text>
-										</TouchableOpacity>
-									</View>
-								);
-
-								const isTraining = slot.sourceType === "training";
-
-								const card = (
-									<Card style={[styles.slotCard, isTraining && styles.trainingSlotCard]}>
-										<Card.Content style={styles.slotContent}>
-											<View style={styles.slotTopRow}>
-												<View style={styles.timePill}>
-													<MaterialCommunityIcons name="clock-time-four-outline" size={15} color={COLORS.primary} />
-													<Text style={styles.timePillText}>
-														{slot.startTime} {slot.endTime ? `- ${slot.endTime}` : ""}
-													</Text>
-												</View>
-
-												<View style={[styles.typeBadge, isTraining ? styles.trainingBadge : styles.bookingBadge]}>
-													<MaterialCommunityIcons
-														name={isTraining ? "soccer" : "calendar-check"}
-														size={14}
-														color={isTraining ? COLORS.primary : "#d97706"}
-														style={{ marginRight: 4 }}
-													/>
-													<Text style={[styles.typeBadgeText, isTraining ? styles.trainingBadgeText : styles.bookingBadgeText]}>
-														{isTraining ? "TRENING DRUŻYNY" : "REZERWACJA SZTABU"}
-													</Text>
-												</View>
-											</View>
-
-											<Text style={styles.slotTitle}>{slot.title}</Text>
-
-											<View style={styles.slotMetaRow}>
-												<View style={styles.metaItem}>
-													<MaterialCommunityIcons name="account-tie" size={15} color={COLORS.textLight} />
-													<Text style={styles.metaText}>{slot.bookerName}</Text>
-												</View>
-
-												<View style={styles.metaItem}>
-													<MaterialCommunityIcons name="map-marker-outline" size={15} color={COLORS.textLight} />
-													<Text style={styles.metaText} numberOfLines={1}>
-														{slot.pitchLocation.includes("Parkowa") ? "Orlik Parkowa" : "Orlik nr 1 przy SP"}
-													</Text>
-												</View>
-											</View>
-										</Card.Content>
-									</Card>
-								);
-
-								if (slot.canManage) {
-									return (
-										<Swipeable
-											key={slot.id}
-											ref={(ref) => {
-												swipeableRef = ref;
-											}}
-											renderRightActions={renderRightActions}
-											friction={2}
-											overshootRight={false}
-										>
-											{card}
-										</Swipeable>
-									);
-								}
-								return <View key={slot.id}>{card}</View>;
-							})
-						)}
-					</ScrollView>
+						if (slot.canManage) {
+							return (
+								<Swipeable
+									key={slot.id}
+									ref={(ref) => {
+										swipeableRef = ref;
+									}}
+									renderRightActions={renderRightActions}
+									friction={2}
+									overshootRight={false}
+								>
+									{card}
+								</Swipeable>
+							);
+						}
+						return <View key={slot.id}>{card}</View>;
+					})
+				)}
+			</ScrollView>
 
 					{/* Dialog Rezerwacji Orlika (Responsywne Drop Menu) */}
 					<Portal>
@@ -1119,14 +1116,14 @@ const targetDay = calendarDays[targetIndex];
 										{purposeDropdownOpen && (
 											<View style={styles.dropdownBody}>
 												{[
+													"Gra rekreacyjna / Mecz towarzyski",
+													"Trening indywidualny / bramkarski",
+													"Zajęcia ogólnorozwojowe / rodzinne",
+													"Trening drużyny klubowej",
+													"Mecz sparingowy / Turniej",
 													"Trening Seniorów",
-													"Trening Juniorów",
-													"Trening Trampkarzy",
-													"Trening Młodzików",
-													"Trening Żaków",
-													"Trening Skrzatów",
-													"Mecz sparingowy",
-													"Zajęcia ogólnorozwojowe",
+													"Trening grup młodzieżowych",
+													"Konserwacja / Prace techniczne",
 												].map((purpose) => {
 													const isSelected = bookingDesc === purpose;
 													return (
@@ -1213,6 +1210,96 @@ const targetDay = calendarDays[targetIndex];
 						</Dialog>
 					</Portal>
 
+					{/* Custom Modal zachęty do logowania / rejestracji dla gości */}
+					<Portal>
+						<Dialog
+							visible={authPromptModalVisible}
+							onDismiss={() => setAuthPromptModalVisible(false)}
+							style={styles.authModalDialog}
+						>
+							<View style={styles.authModalCard}>
+								{/* Przycisk zamknięcia */}
+								<TouchableOpacity
+									activeOpacity={0.7}
+									onPress={() => setAuthPromptModalVisible(false)}
+									style={styles.authModalCloseBtn}
+								>
+									<MaterialIcons name="close" size={20} color={COLORS.textLight} />
+								</TouchableOpacity>
+
+								{/* Herb / Logo GKS z tarczą */}
+								<View style={styles.authModalLogoContainer}>
+									<View style={styles.authModalLogoWrapper}>
+										<Image
+											source={require("../assets/logo_gks.png")}
+											style={styles.authModalLogo}
+											resizeMode="contain"
+										/>
+									</View>
+									<View style={styles.authModalBadge}>
+										<MaterialCommunityIcons name="soccer" size={13} color={COLORS.white} />
+										<Text style={styles.authModalBadgeText}>GKS STRZEGOWO</Text>
+									</View>
+								</View>
+
+								{/* Tytuł i opis */}
+								<Text style={styles.authModalTitle}>Rezerwacja boiska Orlik</Text>
+								<Text style={styles.authModalSubtitle}>
+									Rezerwacja wolnych godzin na Orliku jest dostępna po zalogowaniu dla wszystkich członków i sympatyków klubu.
+								</Text>
+
+								{/* Zalety konta */}
+								<View style={styles.authModalPerksBox}>
+									<View style={styles.authModalPerkItem}>
+										<MaterialIcons name="check-circle" size={16} color={COLORS.primary} />
+										<Text style={styles.authModalPerkText}>Dla rodziców, kibiców i zawodników</Text>
+									</View>
+									<View style={styles.authModalPerkItem}>
+										<MaterialIcons name="check-circle" size={16} color={COLORS.primary} />
+										<Text style={styles.authModalPerkText}>Wybór dogodnych godzin i drugiego boiska</Text>
+									</View>
+									<View style={styles.authModalPerkItem}>
+										<MaterialIcons name="check-circle" size={16} color={COLORS.primary} />
+										<Text style={styles.authModalPerkText}>Zarządzanie swoimi terminami i powiadomienia</Text>
+									</View>
+								</View>
+
+								{/* Przyciski CTA */}
+								<TouchableOpacity
+									activeOpacity={0.85}
+									style={styles.authModalLoginBtn}
+									onPress={() => {
+										setAuthPromptModalVisible(false);
+										router.push("/auth/login" as any);
+									}}
+								>
+									<MaterialCommunityIcons name="login" size={20} color={COLORS.white} />
+									<Text style={styles.authModalLoginBtnText}>Zaloguj się do aplikacji</Text>
+								</TouchableOpacity>
+
+								<TouchableOpacity
+									activeOpacity={0.85}
+									style={styles.authModalRegisterBtn}
+									onPress={() => {
+										setAuthPromptModalVisible(false);
+										router.push("/auth/register" as any);
+									}}
+								>
+									<MaterialCommunityIcons name="account-plus-outline" size={20} color={COLORS.primary} />
+									<Text style={styles.authModalRegisterBtnText}>Załóż bezpłatne konto</Text>
+								</TouchableOpacity>
+
+								<TouchableOpacity
+									activeOpacity={0.7}
+									style={styles.authModalDismissBtn}
+									onPress={() => setAuthPromptModalVisible(false)}
+								>
+									<Text style={styles.authModalDismissBtnText}>Przeglądaj grafik bez logowania</Text>
+								</TouchableOpacity>
+							</View>
+						</Dialog>
+					</Portal>
+
 					{/* Date & Time Pickers */}
 					<DateTimePickerModal
 						isVisible={isDatePickerVisible}
@@ -1253,8 +1340,6 @@ const targetDay = calendarDays[targetIndex];
 						onCancel={() => setEndTimePickerVisible(false)}
 						locale="pl_PL"
 					/>
-				</>
-			)}
 		</ImageBackground>
 	);
 }
@@ -1512,7 +1597,14 @@ const styles = StyleSheet.create({
 		borderColor: "#e2e8f0",
 	},
 	trainingSlotCard: {
-		borderColor: "#dbeafe",
+		borderColor: "#fca5a5",
+		borderLeftWidth: 4,
+		borderLeftColor: "#ef4444",
+	},
+	bookingSlotCard: {
+		borderColor: "#fed7aa",
+		borderLeftWidth: 4,
+		borderLeftColor: "#f97316",
 	},
 	slotContent: {
 		padding: 12,
@@ -1544,22 +1636,26 @@ const styles = StyleSheet.create({
 		paddingVertical: 3,
 		borderRadius: 6,
 	},
-	trainingBadge: {
-		backgroundColor: "#eff6ff",
+	occupiedBadge: {
+		backgroundColor: "#fee2e2",
+		borderWidth: 1,
+		borderColor: "#fca5a5",
+	},
+	occupiedBadgeText: {
+		color: "#dc2626",
 	},
 	bookingBadge: {
-		backgroundColor: "#fef3c7",
+		backgroundColor: "#fff7ed",
+		borderWidth: 1,
+		borderColor: "#ffedd5",
 	},
 	typeBadgeText: {
 		fontFamily: FONTS.bold,
-		fontSize: 10,
+		fontSize: 10.5,
 		letterSpacing: 0.5,
 	},
-	trainingBadgeText: {
-		color: COLORS.primary,
-	},
 	bookingBadgeText: {
-		color: "#d97706",
+		color: "#c2410c",
 	},
 	slotTitle: {
 		fontFamily: FONTS.bold,
@@ -1971,5 +2067,158 @@ const styles = StyleSheet.create({
 		fontSize: 12,
 		color: "#dc2626",
 		marginBottom: 8,
+	},
+	/* Auth Prompt Custom Modal */
+	authModalDialog: {
+		backgroundColor: COLORS.white,
+		borderRadius: 24,
+		marginHorizontal: 16,
+		overflow: "hidden",
+		elevation: 10,
+		shadowColor: "#000",
+		shadowOffset: { width: 0, height: 6 },
+		shadowOpacity: 0.22,
+		shadowRadius: 16,
+		padding: 0,
+	},
+	authModalCard: {
+		padding: 22,
+		alignItems: "center",
+		position: "relative",
+	},
+	authModalCloseBtn: {
+		position: "absolute",
+		top: 14,
+		right: 14,
+		zIndex: 10,
+		padding: 6,
+		borderRadius: 20,
+		backgroundColor: "#f1f5f9",
+	},
+	authModalLogoContainer: {
+		alignItems: "center",
+		marginTop: 4,
+		marginBottom: 14,
+	},
+	authModalLogoWrapper: {
+		width: 78,
+		height: 78,
+		borderRadius: 39,
+		backgroundColor: "#eff6ff",
+		borderWidth: 2,
+		borderColor: "#dbeafe",
+		justifyContent: "center",
+		alignItems: "center",
+		elevation: 3,
+		shadowColor: COLORS.primary,
+		shadowOffset: { width: 0, height: 3 },
+		shadowOpacity: 0.15,
+		shadowRadius: 6,
+		marginBottom: 8,
+	},
+	authModalLogo: {
+		width: 56,
+		height: 56,
+	},
+	authModalBadge: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 5,
+		backgroundColor: COLORS.primary,
+		paddingHorizontal: 10,
+		paddingVertical: 3,
+		borderRadius: 20,
+	},
+	authModalBadgeText: {
+		fontFamily: FONTS.bold,
+		fontSize: 11,
+		color: COLORS.white,
+		letterSpacing: 0.6,
+	},
+	authModalTitle: {
+		fontFamily: FONTS.bold,
+		fontSize: 19,
+		color: COLORS.textDark,
+		textAlign: "center",
+		marginBottom: 6,
+	},
+	authModalSubtitle: {
+		fontFamily: FONTS.regular,
+		fontSize: 13,
+		color: COLORS.textLight,
+		textAlign: "center",
+		lineHeight: 18,
+		marginBottom: 14,
+		paddingHorizontal: 6,
+	},
+	authModalPerksBox: {
+		width: "100%",
+		backgroundColor: "#f8fafc",
+		borderRadius: 14,
+		padding: 12,
+		borderWidth: 1,
+		borderColor: "#e2e8f0",
+		gap: 8,
+		marginBottom: 18,
+	},
+	authModalPerkItem: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 8,
+	},
+	authModalPerkText: {
+		fontFamily: FONTS.medium,
+		fontSize: 12.5,
+		color: COLORS.textDark,
+		flex: 1,
+	},
+	authModalLoginBtn: {
+		width: "100%",
+		height: 48,
+		backgroundColor: COLORS.primary,
+		borderRadius: 14,
+		flexDirection: "row",
+		justifyContent: "center",
+		alignItems: "center",
+		gap: 8,
+		elevation: 3,
+		shadowColor: COLORS.primary,
+		shadowOffset: { width: 0, height: 3 },
+		shadowOpacity: 0.25,
+		shadowRadius: 6,
+		marginBottom: 10,
+	},
+	authModalLoginBtnText: {
+		fontFamily: FONTS.bold,
+		fontSize: 14.5,
+		color: COLORS.white,
+	},
+	authModalRegisterBtn: {
+		width: "100%",
+		height: 46,
+		backgroundColor: "#eff6ff",
+		borderRadius: 14,
+		borderWidth: 1.5,
+		borderColor: "#bfdbfe",
+		flexDirection: "row",
+		justifyContent: "center",
+		alignItems: "center",
+		gap: 8,
+		marginBottom: 8,
+	},
+	authModalRegisterBtnText: {
+		fontFamily: FONTS.semiBold,
+		fontSize: 13.5,
+		color: COLORS.primary,
+	},
+	authModalDismissBtn: {
+		paddingVertical: 6,
+		paddingHorizontal: 12,
+	},
+	authModalDismissBtnText: {
+		fontFamily: FONTS.regular,
+		fontSize: 12.5,
+		color: COLORS.textLight,
+		textDecorationLine: "underline",
 	},
 });

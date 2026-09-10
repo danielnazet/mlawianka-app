@@ -87,6 +87,3 @@ Ten dokument przedstawia podsumowanie wykonanych prac oraz plan dalszego rozwoju
 * **Przychód roczny z abonamentów (5 x 4 680 zł):** **23 400 zł / rok** na czysto
 * **Koszty stałe przy 5 klubach:** **0 zł** *(każdy klub posiada własny darmowy projekt w chmurze Supabase Free Tier)*
 
-
-
-

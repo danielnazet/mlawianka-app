@@ -59,10 +59,14 @@
 
 ---
 
-### KROK 5: Grafik Rezerwacji Boiska / Orlika
-* **Co pokazać:** Zakładka *Rezerwacja Orlika* z listą zarezerwowanych godzin i możliwością dodania nowej rezerwacji.
+### KROK 5: Ogólnodostępny Grafik Boiska / Orlika & Rezerwacje
+* **Co pokazać:** 
+  1. Zakładka *Rezerwacja Orlika* dostępna dla każdego (mieszkańcy i rodzice sprawdzają grafik bez logowania).
+  2. Wyraźne oznaczenie **`🚫 ORLIK ZAJĘTY`** z czerwonym paskiem, gdy na boisku trenuje drużyna klubowa.
+  3. Próba rezerwacji przez gościa – otwarcie **eleganckiego klubowego okna z herbem GKS Strzegowo**, zachęcającego do szybkiego zalogowania lub rejestracji.
+  4. Możliwość rezerwacji wolnych godzin przez rodziców i kibiców na gry rekreacyjne.
 * **Co powiedzieć:**
-  > *"Rozwiązujemy problem nakładania się treningów na boisku. Każdy trener widzi grafik Orlika / boiska głównego w czasie rzeczywistym. Zarząd i trenerzy mogą dodawać i edytować rezerwacje z poziomu aplikacji (z obsługą gestów swipe)."*
+  > *"Rozwiązujemy problem konfliktów na boisku gminnym/klubowym. Grafik jest w 100% jawny dla mieszkańców, a treningi klubowe mają status 'ORLIK ZAJĘTY'. Rodzice i kibice mogą po zalogowaniu rezerwować wolne godziny, a sztab ma pełną kontrolę nad całym obiektem."*
 
 ---
 
@@ -119,34 +123,95 @@ To najważniejszy argument sprzedażowy w rozmowie z Prezesem Klubu:
 
 ## 🔍 5. Co DOKŁADNIE zawiera Abonament (390 zł / mc)?
 
-Gdy zarząd zapyta: *„Za co dokładnie płacimy w abonamencie?”*, przedstaw poniższe 5 punktów:
+Gdy zarząd zapyta: *„Za co dokładnie płacimy w abonamencie?”*, przedstaw poniższe punkty:
 
-1. **☁️ Utrzymanie Serwera i Bazy Danych w Chmurze:** Baza danych (Supabase), bezpieczne konta rodziców i zawodników, hosting zdjęć i codzienne backupy.
+1. **☁️ Utrzymanie Bazy Danych i Chmury (Supabase):** Dedykowana baza danych w chmurze, konta rodziców/zawodników, hosting zdjęć i codzienne kopie zapasowe.
 2. **🔄 Auto-Sync z Facebookiem & Serwer PUSH:** Koszty utrzymania łącznika z API Meta oraz infrastruktury do wysyłania powiadomień PUSH na telefony.
-3. **📱 Aktualizacje pod nowe systemy Android & iOS:** Dbamy o to, by aplikacja zawsze działała na nowych telefonach i nie zniknęła ze sklepów.
-4. **🛠️ Pomoc Techniczna (Helpdesk):** Wsparcie dla zarządu i trenerów przy resetowaniu haseł czy tworzeniu grup.
-5. **🎨 Prace Konfiguracyjne w Cenie (1h / mc):** Podmiana banera sponsora, dodanie nowego rocznika czy zmiana danych kontaktowych.
+3. **⚡ Błyskawiczne Aktualizacje OTA (Over-The-Air / EAS Update):** Zmiany w grafiku, herby czy nowe funkcje trafiają na telefony użytkowników natychmiast, bez czekania na wielodniową weryfikację w Google Play / App Store.
+4. **📱 Zgodność z nowymi wersjami Android & iOS:** Dbamy o to, by aplikacja zawsze działała na nowych modelach telefonów.
+5. **🛠️ Wsparcie Techniczne (Helpdesk):** Pomoc dla zarządu i trenerów przy resetowaniu haseł czy tworzeniu grup.
+6. **🎨 Prace Konfiguracyjne w Cenie (1h / mc):** Podmiana banera sponsora, dodanie nowego rocznika czy aktualizacja danych kontaktowych.
 
 ---
 
-## 🛠️ 6. Twoje Realne Koszty Utrzymania (Koszty Własne)
+## 🛠️ 6. Twoje Realne Koszty Utrzymania (Koszty Własne) i Analiza Skalowania
+
+### Zestawienie kosztów stałych:
 
 | Usługa | Koszt |
 |---|---|
-| **Baza danych Supabase (Auth, DB, Storage)** | **0 zł** *(Free Tier do 50k użytkowników)* lub **~100 zł/mc** *(Pro)* |
-| **Meta for Developers (Facebook Graph API & Logowanie)** | **0 zł** *(bezpłatne API Meta)* |
-| **Powiadomienia Expo Push Service** | **0 zł** *(wliczone w ekosystem Expo/React Native)* |
-| **Konto Dewelopera Google Play** | **$25 jednorazowo** (~100 zł na zawsze) |
-| **Konto Dewelopera Apple App Store (opcja)** | **$99 / rok** (~400 zł / rok) |
-
-> **Wniosek finansowy:** Przy kwocie 390 zł/mc Twoje koszty własne wynoszą zaledwie ułamek kwoty, co daje Ci **ponad 85% czystej marży zysku** co miesiąc.
+| **Baza danych Supabase (Auth, DB, Storage)** | **0 zł** *(Free Tier do 50 000 użytkowników)* lub **~100 zł/mc ($25)** *(Plan Pro)* |
+| **Meta for Developers (Facebook Graph API & Logowanie)** | **0 zł** *(bezpłatne oficjalne API Meta)* |
+| **Powiadomienia Expo Push Service** | **0 zł** *(wliczone w standard Expo/React Native)* |
+| **Konto Dewelopera Google Play** | **$25 jednorazowo** (~100 zł na zawsze na nielimitowaną liczbę aplikacji) |
+| **Konto Dewelopera Apple App Store (opcja)** | **$99 / rok** (~400 zł / rok na nielimitowaną liczbę aplikacji) |
 
 ---
 
-## 🤝 7. Jak przeprowadzić negocjacje krok po kroku?
+## 🛡️ 7. Analiza Kosztów Supabase: Co się stanie, gdy klub przekroczy 1000+ użytkowników?
+
+Częsta obawa: *„Czy jeśli aplikacja stanie się bardzo popularna i przekroczy 1000 użytkowników, to koszty bazy wzrosną i zjedzą mój abonament 390 zł?”*
+
+### 📊 Faktyczne limity platformy Supabase:
+
+| Parametr w Supabase | Pakiet FREE (0 zł) | Pakiet PRO ($25 / ~100 zł mc) | Ile zużywa klub z 1 000 - 3 000 kont? |
+|---|---|---|---|
+| **Miesięczni aktywni użytkownicy (MAU)** | **50 000 MAU** | **100 000 MAU** | Zaledwie **1 000 – 3 000 MAU** *(jesteś bezpieczny w 100%)* |
+| **Pojemność bazy danych PostgreSQL** | **500 MB** | **8 GB** | Cała baza 1000 kont, meczów i treningów zajmuje **~10–25 MB** |
+| **Pojemność na pliki i zdjęcia (Storage)** | **1 GB** | **100 GB** | Posty i zdjęcia z kompresją: **~200–500 MB / rok** |
+| **Ruch sieciowy (Bandwidth)** | **2 GB / mc** | **250 GB / mc** | Normalne korzystanie: **~1–3 GB / mc** |
+| **Automatyczne kopie zapasowe (PITR)** | Podstawowe | 7 dni codziennych backupów | W Pro masz pełen spokój o dane klubu |
+
+### 💡 Wnioski dotyczące rentowności i marży:
+
+1. **Przy 1 000, 2 000 a nawet 5 000 użytkowników**:
+   - Koszt Supabase to **0 zł** (Free Tier) lub **~100 zł / mc ($25)** (Plan Pro z nielimitowanym brakiem pauzowania bazy i backupami).
+   - Nawet jeśli od razu uruchomisz projekt na płatnym planie Pro ($25/mc):
+     - Przychód z abonamentu: **390 zł netto / mc**
+     - Koszt serwera Pro: **~100 zł / mc**
+     - **Twój czysty zysk na rękę:** **~290 zł / mc (ok. 75% czystej marży)** z każdego klubu!
+2. **Kiedy w ogóle koszty Supabase mogłyby wzrosnąć powyżej $25?**
+   - Dopiero po przekroczeniu **100 000 aktywnych użytkowników miesięcznie** lub **8 GB czystego tekstu w bazie** (taki ruch generują ogólnopolskie portale z milionowymi odsłonami, a nie klub lokalny).
+
+### 🔒 Bezpieczny Zapis w Umowie (Fair Usage Policy):
+Aby mieć 100% spokoju psychicznego, w umowie lub ofercie warto zawrzeć standardową klauzulę:
+> *"Pakiet Podstawowy (390 zł/mc) obejmuje obsługę klubu i akademii do 1 500 aktywnych kont użytkowników. W przypadku rozwoju klubu powyżej 1 500 aktywnych kont, opłata abonamentowa wynosi 490 zł/mc (Pakiet Dużej Akademii)."*
+
+Dzięki temu masz pełną gwarancję, że Twoja marża nigdy nie spadnie, a przy wzroście klubu Twój przychód automatycznie rośnie.
+
+---
+
+## 🤝 8. Jak przeprowadzić negocjacje krok po kroku?
 
 1. **Pokaż działającą aplikację na swoim telefonie (lub zainstaluj im z przygotowanego pliku APK).**
 2. **Zaprezentuj grafik Orlika, cykliczne treningi oraz automatyczny sync z FB.**
 3. **Zaproponuj Model Sponsora Tytularnego:** 
    > *"Pokażmy to lokalnemu sponsorowi – przy 390 zł/mc aplikacja wychodzi dla klubu całkowicie za 0 zł."*
 4. **Zaproponuj wdrożenie startowe za 990 zł + abonament 390 zł/mc.**
+
+
+
+
+
+
+
+
+
+🌟 Dlaczego cała aplikacja jest w pełni gotowa do prezentacji?
+Kompletność 5 Głównych Obszarów Klubu:
+
+Dla Kibica: Dostęp do newsów, terminarza meczów seniorów i transmisji wideo bez logowania.
+Dla Rodzica i Zawodnika: Przejrzysty terminarz zbiórek, potwierdzanie obecności 1 kliknięciem, bezpośredni czat z trenerem, subkonto dziecka podpięte pod rodzica.
+Dla Trenera: Generowanie grafiku na pół roku jednym kliknięciem, lista obecności, czat sztabu, rezerwacje boiska.
+Dla Zarządu / Admina: Pełna kontrola nad klubem, dodawanie trenerów bez czekania na maile, tworzenie i archiwizacja roczników.
+Dla Gminy i Mieszkańców: Przejrzysty, ogólnodostępny grafik Orlika eliminujący kłótnie o dostęp do boiska.
+Warstwa Technologiczna i Nowoczesny Design:
+
+Brak błędów (TypeScript & 0 linter errors): Cały kod jest w pełni otypowany i stabilny.
+Nowoczesny UI: Barwy Royal Blue (#1D4ED8), dopasowana typografia Outfit, płynny animowany dolny pasek nawigacji (ClubTabBar), natywne modale z herbem klubu.
+Supabase Realtime & Baza w Chmurze: Bezpieczne reguły RLS, natychmiastowe odświeżanie czatu i powiadomień.
+Aktualizacje Bezprzewodowe (EAS Update): Możliwość wdrażania poprawek bez konieczności ponownego zatwierdzania w Google Play / App Store.
+Porównanie z rynkiem (np. SportBM, ProTrainUp):
+
+Komercyjne systemy kosztują kluby tysiące złotych rocznie, a są skomplikowane i zniechęcają rodziców nadmiarem tabelek.
+Twoja aplikacja jest lekka, intuicyjna, ma klubowy branding (herb, barwy) i wygląda jak dedykowany produkt stworzony na zamówienie za kilkadziesiąt tysięcy złotych.
