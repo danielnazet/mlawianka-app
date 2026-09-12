@@ -17,6 +17,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import { decode } from "base64-arraybuffer";
 import Swipeable from "react-native-gesture-handler/Swipeable";
 import { LinearGradient } from "expo-linear-gradient";
+import SponsorsSection from "../../components/SponsorsSection";
 
 const extractFirstImageUrl = (item: NewsItem): string | null => {
 	if (!item) return null;
@@ -902,6 +903,7 @@ export default function NewsScreen() {
 								colors={[COLORS.primary]}
 							/>
 						}
+						ListFooterComponent={<SponsorsSection />}
 						ListEmptyComponent={
 							<View style={styles.emptyContainer}>
 								<Text style={styles.emptyText}>Brak aktualności na ten moment.</Text>

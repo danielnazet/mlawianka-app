@@ -33,6 +33,7 @@ export const styles = StyleSheet.create({
 	},
 	list: {
 		padding: 16,
+		paddingBottom: 110,
 	},
 	card: {
 		marginBottom: 16,
@@ -666,7 +667,7 @@ export const styles = StyleSheet.create({
 	// League Table Styles
 	tableScrollContent: {
 		padding: 16,
-		paddingBottom: 32,
+		paddingBottom: 110,
 	},
 	tableCard: {
 		backgroundColor: COLORS.white,
@@ -766,7 +767,7 @@ export const styles = StyleSheet.create({
 	},
 	customTabWrapper: {
 		flexDirection: "row",
-		backgroundColor: "#F1F5F9",
+		backgroundColor: "#FFFFFF",
 		borderRadius: 14,
 		padding: 4,
 		borderWidth: 1,

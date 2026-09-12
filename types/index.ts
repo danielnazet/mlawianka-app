@@ -5,3 +5,4 @@ export * from "./training";
 export * from "./match";
 export * from "./booking";
 export * from "./chat";
+export * from "./sponsor";

@@ -34,6 +34,7 @@ import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
 import { COLORS } from "../../css/colors";
 import { FONTS } from "../../css/fonts";
+import SponsorsSection from "../../components/SponsorsSection";
 
 type InfoRowProps = {
   icon: string;
@@ -206,6 +207,8 @@ function GuestProfile() {
         Konto zawodnika niepełnoletniego powinno być
         powiązane z kontem rodzica lub opiekuna.
       </Text>
+
+      <SponsorsSection />
     </ScrollView>
   );
 }
@@ -827,9 +830,36 @@ export default function ProfileScreen() {
                   style={styles.adminTileArrow}
                 />
               </Pressable>
+              <Pressable
+                onPress={() => router.push("/admin/manage_sponsors")}
+                style={({ pressed }) => [
+                  styles.adminTile,
+                  pressed && styles.adminTilePressed,
+                ]}
+              >
+                <View style={styles.adminTileIcon}>
+                  <MaterialCommunityIcons
+                    name="handshake"
+                    size={27}
+                    color="#D97706"
+                  />
+                </View>
+                <Text style={styles.adminTileTitle}>Sponsorzy i Partnerzy</Text>
+                <Text style={styles.adminTileDescription}>
+                  Zarządzaj partnerami klubu i pakietami
+                </Text>
+                <MaterialCommunityIcons
+                  name="chevron-right"
+                  size={22}
+                  color={COLORS.textLight}
+                  style={styles.adminTileArrow}
+                />
+              </Pressable>
             </View>
           </View>
         )}
+
+        <SponsorsSection />
 
         <Button
           mode="outlined"

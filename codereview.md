@@ -61,6 +61,18 @@ Ten dokument zawiera historię zmian, przegląd architektury kodu po migracji do
 * [`app/admin/manage_members.tsx`](./app/admin/manage_members.tsx) umożliwia edycję ról, przenoszenie członków między zespołami i usuwanie kont.
 * [`app/admin/manage_teams.tsx`](./app/admin/manage_teams.tsx) pozwala na tworzenie grup treningowych, archiwizację (`is_active`) i przydzielanie im trenerów.
 * [`app/admin/manage_coaches.tsx`](./app/admin/manage_coaches.tsx) umożliwia rejestrowanie trenerów **bez wymogu potwierdzania e-maila** – konta są natychmiast aktywowane przez funkcję RPC `confirm_user_email`.
+* [`app/admin/manage_sponsors.tsx`](./app/admin/manage_sponsors.tsx) umożliwia dodawanie, edycję, ustalanie kolejności oraz włączanie/wyłączanie widoczności oficjalnych sponsorów i partnerów klubu.
+
+### 7. Moduł Sponsorzy i Partnerzy Klubu (Prezentacja & WOW Factor)
+* **Baza danych i RLS**: Tabela `public.sponsors` z polami `name`, `category` (`main`, `strategic`, `partner`), `description`, `logo_url`, `website_url`, `phone`, `display_order`, `is_active`. Bezpieczne polityki RLS (publiczny odczyt, pełne zarządzanie dla roli `admin`).
+* **Sekcja SponsorsSection** ([`components/SponsorsSection.tsx`](./components/SponsorsSection.tsx)):
+  - **Sponsor Tytularny / Główny**: Ekskluzywna złoto-granatowa karta wyróżniająca sponsora tytularnego z koroną, opisem i linkiem do strony WWW.
+  - **Partnerzy Strategiczni**: Siatka partnerów strategicznych z dedykowanymi ikonami i odnośnikami.
+  - **Partnerzy i Darczyńcy**: Eleganckie kafelki lokalnych przedsiębiorców i instytucji wspierających klub.
+  - **Interaktywny Banner CTA**: Zachęta dla lokalnych sponsorów do dołączenia z szybkim kontaktem telefonicznym/mailowym z zarządem.
+* **Integracja**:
+  - Kanał Aktualności ([`app/(tabs)/news.tsx`](./app/(tabs)/news.tsx)): Wyświetlanie partnerów na dole kanału newsów.
+  - Profil Użytkownika ([`app/(tabs)/profile.tsx`](./app/(tabs)/profile.tsx)): Prezentacja partnerów dla gości i zalogowanych oraz kafelek zarządzania w panelu administratora.
 
 ---
 

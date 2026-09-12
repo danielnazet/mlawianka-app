@@ -223,6 +223,7 @@ export function ClubTabBar({
 
   return (
     <View
+      pointerEvents="box-none"
       style={[
         styles.safeAreaContainer,
         {
@@ -312,23 +313,28 @@ export function ClubTabBar({
 
 const styles = StyleSheet.create({
   safeAreaContainer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: "transparent",
-    paddingTop: 7,
+    paddingTop: 0,
+    zIndex: 100,
   },
 
   outerShadow: {
-    marginHorizontal: 8,
+    marginHorizontal: 16,
     borderRadius: 34,
 
     shadowColor: "#000000",
     shadowOffset: {
       width: 0,
-      height: 5,
+      height: 4,
     },
-    shadowOpacity: Platform.OS === "ios" ? 0.22 : 0,
-    shadowRadius: 12,
+    shadowOpacity: Platform.OS === "ios" ? 0.16 : 0,
+    shadowRadius: 10,
 
-    elevation: 12,
+    elevation: 8,
   },
 
   tabBar: {
@@ -336,10 +342,10 @@ const styles = StyleSheet.create({
     padding: 3,
 
     borderRadius: 34,
-    borderWidth: 1.4,
-    borderColor: "#E5E7EB",
+    borderWidth: 1,
+    borderColor: "rgba(226, 232, 240, 0.9)",
 
-    backgroundColor: "#F9FAFB",
+    backgroundColor: "#FFFFFF",
     overflow: "hidden",
   },
 
@@ -357,10 +363,10 @@ const styles = StyleSheet.create({
 
     borderRadius: 30,
 
-    backgroundColor: "#E5E7EB",
+    backgroundColor: "#EFF6FF",
 
     borderWidth: 1,
-    borderColor: "#D1D5DB",
+    borderColor: "#DBEAFE",
   },
 
   tabButton: {

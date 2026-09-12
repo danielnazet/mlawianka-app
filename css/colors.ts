@@ -4,7 +4,7 @@ export const COLORS = {
 	primaryDark: "#1e3a8a",  // Ciemny niebieski
 	primaryLight: "#eff6ff", // Jasnoniebieski pod tła kart i alertów
 	white: "#ffffff",        // Biel klubowa
-	background: "#f8fafc",   // Neutralne, nowoczesne jasne tło (Slate 50)
+	background: "#ffffff",   // Czysta biel (brak szarego tła)
 	textDark: "#0f172a",     // Bardzo ciemny szary (Slate 900)
 	textLight: "#64748b",    // Średni szary (Slate 500)
 	border: "#e2e8f0",       // Obramowanie (Slate 200)
